@@ -1,0 +1,20 @@
+[ios]
+acc_geg_001 ansible_host=10.1.7.160
+acc_geg_002 ansible_host=10.1.7.161
+agg_geg_001 ansible_host=10.1.7.162
+edg_geg_001 ansible_host=10.1.7.163
+edg_lax_001 ansible_host=10.1.7.164
+agg_lax_001 ansible_host=10.1.7.165
+acc_lax_001 ansible_host=10.1.7.166
+acc_lax_002 ansible_host=10.1.7.167
+test-network-device ansible_host=10.1.7.168
+[geg]
+acc_geg_001 ansible_host=10.1.7.160
+acc_geg_002 ansible_host=10.1.7.161
+agg_geg_001 ansible_host=10.1.7.162
+edg_geg_001 ansible_host=10.1.7.163
+[lax]
+edg_lax_001 ansible_host=10.1.7.164
+agg_lax_001 ansible_host=10.1.7.165
+acc_lax_001 ansible_host=10.1.7.166
+acc_lax_002 ansible_host=10.1.7.167
