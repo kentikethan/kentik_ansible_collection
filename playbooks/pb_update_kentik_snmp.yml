@@ -1,5 +1,5 @@
 ---
-- name: "ADD DEVICES TO KENTIK"
+- name: "MAIN >> UPDATE SNMP FOR DEVICES IN KENTIK"
   hosts: test-network-device
   gather_facts: false
   vars_files:
@@ -7,7 +7,7 @@
 
   tasks:
 
-    - name: GATHER DEVICE ATTRIBUTES
+    - name: MAIN >> GATHER DEVICE ATTRIBUTES
       ansible.builtin.uri:
         url: https://api.kentik.com/api/v5/devices
         method: GET
@@ -19,22 +19,22 @@
       register: kentik_device_list
       delegate_to: localhost
 
-    - name: Build Device ID Dictionary
+    - name: MAIN >> BUILD DEVICE DICTIONARY
       set_fact:
         device_id_dict: "{{ device_id_dict | default({}) | combine ({ item.device_name:item.id }) }}"
       loop: "{{ kentik_device_list.json.devices }}"
       loop_control:
         label: "{{ item.device_name }}"
 
-    - name: Print Dictionary
+    - name: DEBUG >> PRINT DICTIONARY FOR VALIDATION
       debug:
         msg: "Device Name: {{ item.key }}, Device ID: {{ item.value }}"
-        verbosity: 1
+        verbosity: 2
       loop: "{{ device_id_dict | dict2items }}"
       when: item.key == inventory_hostname
 
 
-    - name: UPDATE SNMP
+    - name: MAIN >> UPDATE SNMP
       ansible.builtin.uri:
         url: https://api.kentik.com/api/v5/device/{{item.value}}
         method: PUT

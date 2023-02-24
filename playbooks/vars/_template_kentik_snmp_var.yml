@@ -1,0 +1,7 @@
+kentik_user: "email address"
+kentik_token: "token"
+snmp_user: "username"
+snmp_auth_protocol: "SHA"
+snmp_auth_password: "password"
+snmp_priv_protocol: "AES"
+snmp_priv_password: "password"
