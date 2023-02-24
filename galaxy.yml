@@ -1,0 +1,19 @@
+---
+namespace: kentik
+name: kentik
+# The version of the collection. Must be compatible with semantic versioning
+version: 1.0.0
+readme: README.md
+authors:
+- "Ethan Angele (@kentikethan)"
+description: Ansible Modules for Kentik
+license_file: 'LICENSE'
+tags: 
+- kentik
+- monitoring
+- collection
+- networking
+repository: https://github.com/kentikethan/kentik_ansible_collection
+documentation: https://github.com/kentikethan/kentik_ansible_collection/blob/main/README.md
+homepage: https://github.com/kentikethan/kentik_ansible_collection
+issues: https://github.com/kentikethan/kentik_ansible_collection/issues
