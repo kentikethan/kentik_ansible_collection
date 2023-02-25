@@ -1,6 +1,6 @@
 ---
 - name: "MAIN >> UPDATE SNMP FOR DEVICES IN KENTIK"
-  hosts: test-network-device
+  hosts: all
   gather_facts: false
   vars_files:
     - ./vars/credentials.yml
