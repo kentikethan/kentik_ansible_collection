@@ -7,3 +7,5 @@ The following playbooks are available today for managing Kentik with Ansible:
     1. Create an inventory file with the list of devices that will be updated. The device names in this inventory must match the device names in Kentik. The device names will also need to be resolvable by DNS, if not the user will need to add the ip address to the inventory file with the device name like so: `device1 ansible_host=1.1.1.1` 
     2. The user will need to the duplicate the template_kentik_snmp_var.yml file under the vars directory and name it credentials.yml. After duplicating it, then add all the appropriate settings to the file.
   - To the Run the playbook, type `ansible-playbook pb_update_kentik_snmp.yml -i inventory_file`
+
+-- happy automating
