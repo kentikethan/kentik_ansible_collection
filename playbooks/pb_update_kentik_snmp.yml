@@ -1,6 +1,6 @@
 ---
 - name: "MAIN >> UPDATE SNMP FOR DEVICES IN KENTIK"
-  hosts: all
+  hosts: test-network-device
   gather_facts: false
   vars_files:
     - ./vars/credentials.yml
@@ -34,7 +34,7 @@
       when: item.key == inventory_hostname
 
 
-    - name: MAIN >> UPDATE SNMP
+    - name: MAIN >> UPDATE SNMP VERSION 3
       ansible.builtin.uri:
         url: https://api.kentik.com/api/v5/device/{{item.value}}
         method: PUT
@@ -45,13 +45,30 @@
         body_format: json
         body:
           device:
-           device_snmp_v3_conf: 
-             UserName: "{{ snmp_user }}"
-             AuthenticationProtocol: "{{ snmp_auth_protocol }}"
-             AuthenticationPassphrase: "{{ snmp_auth_password }}"
-             PrivacyProtocol: "{{ snmp_priv_protocol }}"
-             PrivacyPassphrase: "{{ snmp_priv_password }}"
+            device_snmp_v3_conf: 
+              UserName: "{{ snmp_user }}"
+              AuthenticationProtocol: "{{ snmp_auth_protocol | upper }}"
+              AuthenticationPassphrase: "{{ snmp_auth_password }}"
+              PrivacyProtocol: "{{ snmp_priv_protocol }}"
+              PrivacyPassphrase: "{{ snmp_priv_password }}"
         status_code: 200,201 
       loop: "{{ device_id_dict | dict2items }}"
-      when: item.key == inventory_hostname
+      when: item.key == inventory_hostname and snmp_version | lower == "v3"
+      delegate_to: localhost
+
+    - name: MAIN >> UPDATE SNMP VERSION 2
+      ansible.builtin.uri:
+        url: https://api.kentik.com/api/v5/device/{{item.value}}
+        method: PUT
+        headers:
+          X-CH-Auth-API-Token: "{{ kentik_token }}"
+          X-CH-Auth-Email: "{{ kentik_user }}"
+          Content-Type: application/json
+        body_format: json
+        body:
+          device:
+            device_snmp_community: "{{ snmp_community }}"
+        status_code: 200,201 
+      loop: "{{ device_id_dict | dict2items }}"
+      when: item.key == inventory_hostname and snmp_version | lower == "v2"
       delegate_to: localhost
