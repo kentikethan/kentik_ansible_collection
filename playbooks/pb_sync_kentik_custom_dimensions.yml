@@ -67,10 +67,6 @@
       register: kentik_batch_response
       delegate_to: localhost
     
-    - name: PRINT BATCH RESPONSE
-      debug:
-        var: kentik_batch_response
-    
     - name: MAIN >> GET BATCH STATUS
       ansible.builtin.uri:
         url: https://api.kentik.com/api/v5/batch/{{ kentik_batch_response.json.guid }}/status
