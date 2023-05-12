@@ -143,3 +143,6 @@ venv
 env
 Vagrantfile
 .vagrant
+
+# JSON File for Batch Playbook
+batch_populator.json

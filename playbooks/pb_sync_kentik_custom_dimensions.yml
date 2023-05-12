@@ -1,0 +1,89 @@
+---
+#START
+#Pick two custom dimensions that want to be matching source/destination inverses of one another.
+#Go gather the to be copied FROM custom dimension.
+#Go gather the to be copied TO custom dimension.
+#Using the information in the FROM custom dimension build a json file that creates a duplicate set of populators in the reverse direction and with the TO dimension ID.
+#Take created json file and upload it as a part of a batch job.
+#Take the batch guid and request the status.
+#Wait until the status is completed or fail the playbook. 
+#DONE
+
+- name: "MAIN >> SYNC A CUSTOM DIMENSION WITH ANOTHER CUSTOM DIMENSTION IN THE REVERSE DIRECTION"
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ./vars/credentials.yml
+  vars_prompt:
+    - name: fromCustomDimensionID
+      prompt: What is the "from" custom dimension?
+      private: false
+    - name: toCustomDimensionID
+      prompt: What is the "to" custom dimenstion?
+      private: false
+
+  tasks:
+
+    - name: MAIN >> GATHER THE FROM CUSTOM DIMENSION
+      ansible.builtin.uri:
+        url: https://api.kentik.com/api/v5/customdimension/{{ fromCustomDimensionID }}
+        method: GET
+        headers: 
+          X-CH-Auth-API-Token: "{{ kentik_token }}"
+          X-CH-Auth-Email: "{{ kentik_user }}"
+          Content-Type: application/json
+        status_code: 200
+      register: kentik_from_custom_dimension
+      delegate_to: localhost
+    
+    - name: MAIN >> GATHER THE TO CUSTOM DIMENSION
+      ansible.builtin.uri:
+        url: https://api.kentik.com/api/v5/customdimension/{{ toCustomDimensionID }}
+        method: GET
+        headers: 
+          X-CH-Auth-API-Token: "{{ kentik_token }}"
+          X-CH-Auth-Email: "{{ kentik_user }}"
+          Content-Type: application/json
+        status_code: 200
+      register: kentik_to_custom_dimension
+      delegate_to: localhost
+    
+    - name: "MAIN >> BUILD JSON FILE"
+      ansible.builtin.template:
+        src: templates/batch_populator.j2
+        dest: files/batch_populator.json
+
+    - name: MAIN >> SYNC THE CUSTOM DIMENSIONS
+      ansible.builtin.uri:
+        url: https://api.kentik.com/api/v5/batch/customdimensions/{{ kentik_from_custom_dimension.json.customDimension.name }}/populators
+        method: POST
+        headers: 
+          X-CH-Auth-API-Token: "{{ kentik_token }}"
+          X-CH-Auth-Email: "{{ kentik_user }}"
+          Content-Type: application/json
+        status_code: 200
+        body: "{{ lookup('ansible.builtin.file','files/batch_populator.json') }}"
+        body_format: json
+      register: kentik_batch_response
+      delegate_to: localhost
+    
+    - name: PRINT BATCH RESPONSE
+      debug:
+        var: kentik_batch_response
+    
+    - name: MAIN >> GET BATCH STATUS
+      ansible.builtin.uri:
+        url: https://api.kentik.com/api/v5/batch/{{ kentik_batch_response.json.guid }}/status
+        method: GET
+        headers: 
+          X-CH-Auth-API-Token: "{{ kentik_token }}"
+          X-CH-Auth-Email: "{{ kentik_user }}"
+          Content-Type: application/json
+        status_code: 200
+      register: kentik_batch_status
+      delegate_to: localhost
+      retries: 3
+      delay: 10
+      until: kentik_batch_status.json.is_complete
+
+

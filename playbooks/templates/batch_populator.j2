@@ -1,0 +1,26 @@
+{
+  "replace_all": true,
+  "complete": true,
+  "upserts": [
+{% for populator in kentik_from_custom_dimension.json.customDimension['populators'] %}
+    {
+      "value": "{{populator['value']}}",
+      "criteria": [
+        {
+{% if populator['direction'] == "SRC" %}
+          "direction": "DST",
+{% else %}
+          "direction": "SRC",
+{% endif %}
+          "addr": ["{{ populator['addr'] }}"],
+          "dimension_id": "{{ kentik_to_custom_dimension.json.customDimension['id'] }}"
+        }
+       ]
+{% if not loop.last %}
+    },
+{% else %}
+    }
+{% endif %}
+{% endfor %}
+      ]
+}
