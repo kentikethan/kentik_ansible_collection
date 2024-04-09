@@ -18,111 +18,108 @@ version_added: "1.0.0"
 description: The module will gather the current list of devices from Kentik and create the device if it is not in the list. 
 
 options:
-    name:
+    device_name:
         description: The name of the device.
         required: true
         type: str
-    description:
+    device_description:
         description: The device description.
         required: false
         type: str
-    subType:
+    device_subtype:
         description: The device subtype.
         choices: router, host-nprobe-dns-www, aws-subnet, azure_subnet, cisco_asa, gcp-subnet, istio_beta, open_nms, paloalto, silverpeak
         required: true
         type: str
         default: "router"
-    cdnAttr:
+    cdn_attr:
         description: If this is a DNS server, you can contribute its queries to Kentik's CDN attribution database. 
         Valid values: "None" or "Y" or "N". ** cdn_attr is required when the device subtype's parent type is "host-nprobe-dns-www"
         required: false
         default: "none"
-    sampleRate:
+    device_sample_rate:
         description: The rate at which the device is sampling flows.
         required: true
         type: int
         default: 1
-    planId:
+    plan_id:
         description: The ID of the plan to which this device is assigned.
         required: true
         type: int
-    siteId:
+    site_id:
         description: The ID of the site (if any) to which this device is assigned.
         required: false
         type: str
-    flowSendingIp:
-        description: IP address from which the device is sending flow.
+    sending_ips:
+        description: IP addresses from which the device is sending flow.
         required: true
-        type: str
-    snmpVersion:
-        description: The version of snmp. 
-        choices: "None" or "v2c" or "v3"
-        required: true
-        type: str
-    snmpIp:
+        type: list
+    minimize_snmp:
+        description: IP addresses from which the device is sending flow.
+        required: false
+        type: bool
+        default: False
+    device_snmp_ip:
         description: IP address from which the device is listening on snmp.
         required: false
         type: str
-    snmpCommunity:
+    device_snmp_community:
         description: The SNMP community to use when polling the device.
         required: false
         type: str
-    snmpV3Conf:
+    device_snmp_v3_conf:
         username:
             description: The user name to use to authenticate via SNMP v3. 
             required: false
             type: str
-        authenticationProtocol:
+        authentication_protocol:
             description: The auth protocol to use via SNMP v3.
             choices: "NoAuth" or "MD5" or "SHA"
             required: false
             type: str
-        authenticationPassphrase:
+        authentication_passphrase:
             description: AuthenticationPassphrase - the passphrase to use for SNMP v3.
             required: false
             type: str
-        privacyProtocol:
+        privacy_protocol:
             description: PrivacyProtocol - the privacy protocol to use to authenticate via SNMP v3.
             choices: "NoPriv" or "DES" or "AES"
             required: false
             type: str
-        privacyPassphrase:
+        privacy_passphrase:
             description: PrivacyPassphrase - the passphrase to use for SNMP v3 privacy protocol.
             required: false
             type: str
-    bgpType:
+    device_bgp_type:
         description: BGP (device_bgp_type) - Device bgp type. 
         Valid values: "none" (use generic IP/ASN mapping), "device" (peer with the device itself), "other_device" (share routing table of existing peered device).
         required: true
         type: str
         default: none
-    bgpNeighborIp:
+    device_bgp_neighbor_ip:
         description: Your IPv4 peering address.
         required: false
         type: str
-    bgpNeighborIpv6:
+    device_bgp_neighbor_ip6:
         description: Your IPv6 peering address.
         required: false
         type: str
-    bgpNeighborAsn:
+    device_bgp_neighbor_asn:
         description: The valid AS number (ASN) of the autonomous system that this device belongs to.
         required: false
         type: str
-    deviceBgpPassword
+    device_bgp_password:
         description: Optional BGP MD5 password.
         required: false
         type: str
-    useBgpDeviceId:
+    use_bgp_device_id:
         description: The ID of the device whose BGP table should be shared with this device.
         required: false
         type: int
-    deviceBgpFlowspec:
+    device_bgp_flowspec:
         description: Toggle BGP Flowspec Compatibility for device.
         required: false
         type: bool
-
-
-
 
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name

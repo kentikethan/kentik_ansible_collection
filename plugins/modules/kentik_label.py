@@ -9,7 +9,7 @@ DOCUMENTATION = r'''
 ---
 module: kentik_label
 
-short_description: This is a module that will perform idempoent operations on kentik site management. 
+short_description: This is a module that will perform idempoent operations on kentik label management. 
 
 # If this is part of a collection, you need to use semantic versioning,
 # i.e. the version is of the form "2.5.0" and not "2.4".
@@ -18,26 +18,26 @@ version_added: "1.0.0"
 description: The module will gather the current list of sites from Kentik and create the site if it is not in the list. 
 
 options:
-    title:
-        description: The site name to be displayed and referenced going forward.
+    name:
+        description: The name or title of the label.
         required: true
         type: str
-    postalAddress:
-        description: The physicall address of the site. 
-        required: false
+    color:
+        description: The hexidecimal color code to be applied to the label. Default is a gray color. 
+        required: true
+        default: \#007090
         type: str
-    type:
-        description: The type of site this is, see choices for options. 
+    email:
+        description: Email to authenticate to Kentik: KENTIK_EMAIL environment var by default. 
         required: true
         type: str
-        default: SITE_TYPE_OTHER
-        choices:
-            - SITE_TYPE_DATA_CENTER
-            - SITE_TYPE_CLOUD
-            - SITE_TYPE_BRANCH
-            - SITE_TYPE_CONNECTIVITY
-            - SITE_TYPE_CUSTOMER
-            - SITE_TYPE_OTHER
+        default: KENTIK_EMAIL
+    token:
+        description: The token to authenticate to Kentik: KENTIK_TOKEN envirnment var by default.
+        required: true
+        type: str
+        default: KENTIK_TOKEN
+
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
 # extends_documentation_fragment:
@@ -49,19 +49,22 @@ author:
 
 EXAMPLES = r'''
 # Pass in a message
-- name: Create a Site
-  kentik_site:
-    title: LA1
-    postalAddress: 
-            address: 600 W 7th Street,
-            city: Los Angeles,
-            country: US
-    type: SITE_TYPE_DATA_CENTER
+- name: Create a Label
+  kentik_label:
+    name: ACCESS_SWITCH
+    color: \#007090
+    state: present
+
+- name: Delete a Label
+    kentik_label:
+    name: ACCESS_SWITCH
+    state: absent
 
 # fail the module
 - name: Test failure of the module
-  create_kentik_site:
-    title: fail me because site type not included
+  kentik_label:
+    name: fail me because wront state
+    state: create
 '''
 
 RETURN = r'''

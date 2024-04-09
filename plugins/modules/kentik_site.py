@@ -25,7 +25,7 @@ options:
     postalAddress:
         description: The physicall address of the site. 
         required: false
-        type: str
+        type: dict
     type:
         description: The type of site this is, see choices for options. 
         required: true
