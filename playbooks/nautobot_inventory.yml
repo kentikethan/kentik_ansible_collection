@@ -1,0 +1,7 @@
+plugin: networktocode.nautobot.inventory
+api_endpoint: https://10.1.1.12
+validate_certs: False
+config_context: False
+token: 8cb202f087fcfb191e91853655e36a2f6bd4f3b9
+device_query_filters:
+  - has_primary_ip: 'true'

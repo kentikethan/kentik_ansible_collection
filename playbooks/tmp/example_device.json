@@ -1,0 +1,14 @@
+{
+    "ANSIBLE_MODULE_ARGS": {
+        "device_name": "acc_geg_001",
+        "device_sample_rate": 10,
+        "device_snmp_community": "myPreciousCommunity",
+        "device_snmp_ip": "10.1.7.160",
+        "device_subtype": "router",
+        "minimize_snmp": false,
+        "plan_name": "Free Flowpak Plan",
+        "sending_ips": ["10.1.7.160"],
+        "site_name": "GEG",
+        "device_bgp_type": "none"
+    }
+}

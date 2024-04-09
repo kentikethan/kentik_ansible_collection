@@ -13,7 +13,7 @@ tags:
 - monitoring
 - collection
 - networking
-repository: https://github.com/kentikethan/kentik_ansible_collection
-documentation: https://github.com/kentikethan/kentik_ansible_collection/blob/main/README.md
-homepage: https://github.com/kentikethan/kentik_ansible_collection
-issues: https://github.com/kentikethan/kentik_ansible_collection/issues
+repository: https://github.com/kentik/kentik_ansible_collection
+documentation: https://github.com/kentik/kentik_ansible_collection/blob/main/README.md
+homepage: https://github.com/kentik/kentik_ansible_collection
+issues: https://github.com/kentik/kentik_ansible_collection/issues

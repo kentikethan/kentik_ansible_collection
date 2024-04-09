@@ -16,4 +16,13 @@ The following playbooks are available today for managing Kentik with Ansible:
     - Only values with one address to value mapping is supported.
     - Only ip address values are supported. 
     - The maximum number of populators is unknown for this playbook and may be something you run into.
+
+- Sync Nautobot to Kentik
+  - This playbook will use nautbot as an inventory source and take each of the devices from the inventory and verify that it is created in kentik and if not create it, associate it to the right site, and apply the right labels.
+  - First compile a list of sites from the device inventory and ensure those sites are created in kentik. 
+  - Second compile a list of de-duplicated labels and ensure that the labels are created. 
+  - Third, take each device and ensure that it is created in kentik.
+  - Fourth, apply labels to the device. 
+  - Done
+  
 -- happy automating
