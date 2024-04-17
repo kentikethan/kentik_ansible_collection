@@ -121,6 +121,9 @@ options:
         required: false
         type: bool
 
+
+
+
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
 # extends_documentation_fragment:
@@ -353,13 +356,14 @@ def main():
         device_snmp_ip=dict(type='str', required=False),
         device_snmp_community=dict(type='str', required=False),
         device_snmp_v3_conf=dict(type='dict', required=False),
-        device_bgp_type=dict(type='str', required=False, choices=['none','device','other_device']),
+        device_bgp_type=dict(type='str', required=False, choices=['none','device','other_device'], default='none'),
         device_bgp_neighbor_ip=dict(type='str', required=False),
         device_bgp_neighbor_ip6=dict(type='str', required=False),
         device_bgp_neighbor_asn=dict(type='str', required=False),
         device_bgp_password=dict(type='str', required=False, no_log=True),
         use_bgp_device_id=dict(type='int', required=False),
         device_bgp_flowspec=dict(type='bool', required=False),
+        nms=dict(type='dict', required=False),
         labels=dict(type='list',required=False),
         email=dict(type='str', required=False, default=os.environ['KENTIK_EMAIL']),
         token=dict(type='str', no_log=True, required=False, default=os.environ['KENTIK_TOKEN']),
