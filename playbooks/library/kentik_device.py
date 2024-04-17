@@ -120,6 +120,55 @@ options:
         description: Toggle BGP Flowspec Compatibility for device.
         required: false
         type: bool
+    nms:
+        description: A dictionary for adding NMS SNMP or streaming telemetry to a device.
+        required: false
+        type: dict
+            agentId:
+                description: ID of the agent that is monitoring this device.
+                required: true
+                type: string
+            ipAddress:
+                description: Local IP address of this device.
+                required: true
+                type: string
+            snmp:
+                description: SNMP Config for NMS
+                required: false
+                type: dict
+                    credentialName:
+                        description: Name of the SNMP credentials from the credential vault.
+                        required: true
+                        type: string
+                    port:
+                        description: SNMP port, to override default of 161.
+                        required: false
+                        type: int
+                    timeout:
+                        description: Timeout, to override default of 2s.
+                        required: false
+                        type: string
+            st:
+                description: Steaming telemetry config for NMS
+                required: false
+                type: dict
+                    credentialName:
+                        description: Name of the SNMP credentials from the credential vault.
+                        required: true
+                        type: string
+                    port:
+                        description: SNMP port, to override default of 161.
+                        required: false
+                        type: int
+                    timeout:
+                        description: Timeout, to override default of 2s.
+                        required: false
+                        type: string
+                    secure:
+                        description: Use SSL to connect to this device.
+                        required: true
+                        type: bool
+
 
 
 
