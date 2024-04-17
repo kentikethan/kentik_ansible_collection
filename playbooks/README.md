@@ -1,5 +1,11 @@
 # Ansible Playbooks for Kentik
 
+## Setup Authentication
+
+First step is to create a copy of the credential file and name it credentials.yml under the vars directory.
+
+## Playbooks
+
 The following playbooks are available today for managing Kentik with Ansible:
 
 - Updating SNMP device settings

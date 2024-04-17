@@ -9,10 +9,10 @@
 
     - name: Collect List of Sites from Nautobot
       uri: 
-        url: https://10.1.1.12/api/dcim/locations
+        url: "https://{{ nautobot_host }}/api/dcim/locations"
         validate_certs: false
         headers:
-          authorization: Token {{nautobot_token}}
+          authorization: "Token {{nautobot_token}}"
       register: nautobot_sites
       delegate_to: localhost
       run_once: true
@@ -30,7 +30,7 @@
 
     - name: Gather Device Roles from Nautobot
       uri: 
-        url: https://10.1.1.12/api/extras/roles
+        url: "https://{{ nautobot_host }}/api/extras/roles"
         validate_certs: false
         headers:
           authorization: Token {{nautobot_token}}
@@ -40,7 +40,7 @@
     
     - name: Gather Tenants from Nautobot
       uri: 
-        url: https://10.1.1.12/api/tenancy/tenants
+        url: "https://{{ nautobot_host }}/api/tenancy/tenants"
         validate_certs: false
         headers:
           authorization: Token {{nautobot_token}}
@@ -50,7 +50,7 @@
     
     - name: Gather Tags from Nautobot
       uri: 
-        url: https://10.1.1.12/api/extras/tags
+        url: "https://{{ nautobot_host }}/api/extras/tags"
         validate_certs: false
         headers:
           authorization: Token {{nautobot_token}}
@@ -60,7 +60,7 @@
 
     - name: Gather Device Types from Nautobot
       uri: 
-        url: https://10.1.1.12/api/dcim/device-types
+        url: "https://{{ nautobot_host }}/api/dcim/device-types"
         validate_certs: false
         headers:
           authorization: Token {{nautobot_token}}
@@ -105,7 +105,12 @@
         site_name: "{{ location }}"
         sending_ips: ["{{ primary_ip4 }}"]
         device_snmp_ip: "{{ primary_ip4 }}"
-        device_snmp_community: "myPreciousCommunity"
+        device_snmp_community: kentik
+        nms:
+            agentId: "183"
+            ipAddress: "{{ primary_ip4 }}"
+            snmp:
+                credentialName: snmp_v2_read_only
         labels: ["{{ device_roles | join(',') }}","{{ tags| join(',') }}","{{ tenants | join(',') }}"]
       delegate_to: localhost
       environment:
