@@ -57,17 +57,6 @@
       register: nautobot_tags
       delegate_to: localhost
       run_once: true
-
-    - name: Gather Device Types from Nautobot
-      uri: 
-        url: "https://{{ nautobot_host }}/api/dcim/device-types"
-        validate_certs: false
-        headers:
-          authorization: Token {{nautobot_token}}
-      register: nautobot_types
-      delegate_to: localhost
-      run_once: true
-
     
     - name: Create Device Role Labels
       kentik_label:
@@ -88,13 +77,6 @@
         name: "{{ item['name'] }}"
       delegate_to: localhost
       loop: "{{ nautobot_tags.json.results }}"
-      run_once: true
-
-    - name: Create Device Type Labels
-      kentik_label:
-        name: "{{ item['display'] }}"
-      delegate_to: localhost
-      loop: "{{ nautobot_types.json.results }}"
       run_once: true
 
     - name: Create Device
