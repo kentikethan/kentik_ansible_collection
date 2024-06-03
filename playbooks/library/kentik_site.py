@@ -38,6 +38,14 @@ options:
             - SITE_TYPE_CONNECTIVITY
             - SITE_TYPE_CUSTOMER
             - SITE_TYPE_OTHER
+    region:
+        description: The reqion that your Kentik portal is located in. 
+        required: false
+        type: str
+        default: US
+        choices:
+            - US
+            - EU
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
 # extends_documentation_fragment:
@@ -57,6 +65,15 @@ EXAMPLES = r'''
             city: Los Angeles,
             country: US
     type: SITE_TYPE_DATA_CENTER
+- name: Create a Site in EU Cluster
+  kentik_site:
+    title: LA1
+    postalAddress: 
+            address: 600 W 7th Street,
+            city: Los Angeles,
+            country: US
+    type: SITE_TYPE_DATA_CENTER
+    region: EU
 
 # fail the module
 - name: Test failure of the module
@@ -89,6 +106,7 @@ def buildPayload(module):
     del payload['email']
     del payload['token']
     del[payload['state']]
+    del[payload['region']]
     return payload
 
 def gatherSites(base_url,api_version,auth,module):
@@ -147,8 +165,6 @@ def createSite(base_url,api_version,auth,site_object,module):
         module.fail_json(msg=to_text(exc))
 
 def main():
-    base_url = "https://grpc.api.kentik.com/site/"
-    api_version = "v202211"
     argument_spec = dict(
         title=dict(type='str', required=True),
         postalAddress=dict(type='dict', required=False),
@@ -157,7 +173,8 @@ def main():
         lon=dict(type="int", required=False),
         email=dict(type='str', required=False, default=os.environ['KENTIK_EMAIL']),
         token=dict(type='str', no_log=True, required=False, default=os.environ['KENTIK_TOKEN']),
-        state=dict(default="present", choices=["present", "absent"])
+        state=dict(default="present", choices=["present", "absent"]),
+        region=dict(type='str', default="US", choices=["US", "EU"])
     )
     module = AnsibleModule(
         argument_spec=argument_spec,
@@ -170,6 +187,11 @@ def main():
         'X-CH-Auth-API-Token': module.params['token'], 
         'Content-Type': 'application/json'
         }
+    if module.params['region'] == "EU":
+        base_url = "https://grpc.api.kentik.eu/site/"
+    else:
+        base_url = "https://grpc.api.kentik.com/site/"
+    api_version = "v202211"
     site_object = buildPayload(module)
     site_list = gatherSites(base_url,api_version,auth,module)
     site_exists = compareSite(site_list, module)
