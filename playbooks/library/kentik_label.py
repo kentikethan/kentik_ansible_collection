@@ -37,6 +37,14 @@ options:
         required: true
         type: str
         default: KENTIK_TOKEN
+    region:
+        description: The reqion that your Kentik portal is located in. 
+        required: false
+        type: str
+        default: US
+        choices:
+            - US
+            - EU
 
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
@@ -59,6 +67,7 @@ EXAMPLES = r'''
     kentik_label:
     name: ACCESS_SWITCH
     state: absent
+    region: EU
 
 # fail the module
 - name: Test failure of the module
@@ -92,6 +101,7 @@ def buildPayload(module):
     del payload['email']
     del payload['token']
     del[payload['state']]
+    del [payload["region"]]
     return payload
 
 def gatherLabels(base_url,api_version,auth,module):
@@ -153,13 +163,12 @@ def createLabel(base_url,api_version,auth,module,site_object):
         module.fail_json(msg=to_text(exc))
 
 def main():
-    base_url = "https://grpc.api.kentik.com"
-    api_version = "v202210"
     argument_spec = dict(
         name=dict(type='str', required=True),
         color=dict(type='str', required=False, default="#007090"),
         email=dict(type='str', required=False, default=os.environ['KENTIK_EMAIL']),
         token=dict(type='str', no_log=True, required=False, default=os.environ['KENTIK_TOKEN']),
+        region=dict(type="str", default="US", choices=["US", "EU"]),
         state=dict(default="present", choices=["present", "absent"])
     )
     module = AnsibleModule(
@@ -173,6 +182,11 @@ def main():
         'X-CH-Auth-API-Token': module.params['token'], 
         'Content-Type': 'application/json'
         }
+    if module.params["region"] == "EU":
+        base_url = "https://grpc.api.kentik.eu"
+    else:
+        base_url = "https://grpc.api.kentik.com"
+    api_version = "v202210"
     site_object = buildPayload(module)
     result = {"changed": False}
     warnings = list()

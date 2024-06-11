@@ -120,6 +120,14 @@ options:
         description: Toggle BGP Flowspec Compatibility for device.
         required: false
         type: bool
+    region:
+        description: The reqion that your Kentik portal is located in. 
+        required: false
+        type: str
+        default: US
+        choices:
+            - US
+            - EU
     nms:
         description: A dictionary for adding NMS SNMP or streaming telemetry to a device.
         required: false
@@ -201,6 +209,7 @@ EXAMPLES = r'''
     bgpNeighborAsn: 65001
     deviceBgpPassword: myPreciousPassword
     deviceBgpFlowspec: True
+    region: EU
 
 
 # fail the module
@@ -256,6 +265,7 @@ def buildPayload(base_url, api_version, auth, module):
     del[payload['state']]
     payload['title'] = module.params['site_name']
     del[payload['site_name']]
+    del [payload["region"]]
     site_list = gatherSites(base_url,"/site/v202211",auth,module)
     site_id = compareSite(site_list, module)
     payload['site_id'] = int(site_id)
@@ -391,7 +401,6 @@ def updateDeviceLabels(base_url,api_version,auth,module,device_id,labels):
 
 def main():
     base_url = "https://grpc.api.kentik.com"
-    api_version = "v202308beta1"
     argument_spec = dict(
         device_name=dict(type='str', required=True),
         device_description=dict(type='str', required=False, default='Added by Ansible'),
@@ -416,6 +425,7 @@ def main():
         labels=dict(type='list',required=False),
         email=dict(type='str', required=False, default=os.environ['KENTIK_EMAIL']),
         token=dict(type='str', no_log=True, required=False, default=os.environ['KENTIK_TOKEN']),
+        region=dict(type="str", default="US", choices=["US", "EU"]),
         state=dict(default="present", choices=["present", "absent"])
     )
     module = AnsibleModule(
@@ -429,6 +439,11 @@ def main():
         'X-CH-Auth-API-Token': module.params['token'], 
         'Content-Type': 'application/json'
         }
+    if module.params["region"] == "EU":
+        base_url = "https://grpc.api.kentik.eu"
+    else:
+        base_url = "https://grpc.api.kentik.com"
+    api_version = "v202308beta1"
     if module.params['labels']:
         print("Labels found")
         labels = buildLabels(base_url, api_version, auth, module)
