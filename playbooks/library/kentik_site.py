@@ -104,7 +104,7 @@ import os
 
 
 def build_payload(module):
-    '''Build the payload'''
+    """Build the payload"""
     payload = module.params
     del payload["email"]
     del payload["token"]
@@ -114,13 +114,15 @@ def build_payload(module):
 
 
 def gather_sites(base_url, api_version, auth, module):
-    '''Gather a list of sites'''
+    """Gather a list of sites"""
     url = f"{base_url}{api_version}/sites"
 
     payload = {}
     headers = auth
     try:
-        response = requests.request("GET", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "GET", url, headers=headers, data=payload, timeout=20
+        )
         site_data = response.json()
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
@@ -131,7 +133,7 @@ def gather_sites(base_url, api_version, auth, module):
 
 
 def compare_site(site_list, module):
-    '''Check to see if the site exists'''
+    """Check to see if the site exists"""
     site = module.params["title"]
     if site in site_list:
         print("Site exists")
@@ -143,13 +145,15 @@ def compare_site(site_list, module):
 
 
 def delete_site(base_url, api_version, auth, site_id, module):
-    '''Function to delete a site'''
+    """Function to delete a site"""
     print("Deleting Site...")
     url = f"{base_url}{api_version}/sites/{site_id}"
     payload = {}
     headers = auth
     try:
-        response = requests.request("DELETE", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "DELETE", url, headers=headers, data=payload, timeout=20
+        )
         if response.status_code == 200:
             function_return = "ok"
         else:
@@ -160,14 +164,16 @@ def delete_site(base_url, api_version, auth, site_id, module):
 
 
 def create_site(base_url, api_version, auth, site_object, module):
-    '''Function for creating the site'''
+    """Function for creating the site"""
     print("Creating Site...")
     url = f"{base_url}{api_version}/sites"
 
     payload = json.dumps({"site": site_object})
     headers = auth
     try:
-        response = requests.request("POST", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "POST", url, headers=headers, data=payload, timeout=20
+        )
         if response.status_code == 200:
             site_data = response.json()
             function_return = site_data["site"]["id"]
@@ -179,7 +185,7 @@ def create_site(base_url, api_version, auth, site_object, module):
 
 
 def main():
-    '''Main function for the program'''
+    """Main function for the program"""
     argument_spec = dict(
         title=dict(type="str", required=True),
         postalAddress=dict(type="dict", required=False),

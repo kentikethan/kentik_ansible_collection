@@ -2,10 +2,11 @@
 
 # Copyright: (c) 2018, Terry Jones <terry.jones@example.org>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
-from __future__ import (absolute_import, division, print_function)
+from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: kentik_label
 
@@ -53,9 +54,9 @@ options:
 
 author:
     - Ethan Angele (@kentikethan)
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 # Pass in a message
 - name: Create a Label
   kentik_label:
@@ -74,9 +75,9 @@ EXAMPLES = r'''
   kentik_label:
     name: fail me because wront state
     state: create
-'''
+"""
 
-RETURN = r'''
+RETURN = r"""
 # These are examples of possible return values, and in general should use other names for return values.
 original_message:
     description: The original name param that was passed in.
@@ -88,7 +89,7 @@ message:
     type: str
     returned: always
     sample: 'goodbye'
-'''
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_text
@@ -96,22 +97,26 @@ import requests
 import json
 import os
 
+
 def build_payload(module):
-    '''Build the request payload'''
+    """Build the request payload"""
     payload = module.params
-    del payload['email']
-    del payload['token']
-    del[payload['state']]
+    del payload["email"]
+    del payload["token"]
+    del [payload["state"]]
     del [payload["region"]]
     return payload
 
-def gather_labels(base_url,api_version,auth,module):
-    '''Gather the current list of labels'''
+
+def gather_labels(base_url, api_version, auth, module):
+    """Gather the current list of labels"""
     url = f"{base_url}/label/{api_version}/labels"
     payload = {}
     headers = auth
     try:
-        response = requests.request("GET", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "GET", url, headers=headers, data=payload, timeout=20
+        )
         if response.status_code == 200:
             label_data = response.json()
         else:
@@ -119,13 +124,14 @@ def gather_labels(base_url,api_version,auth,module):
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
     label_dict = {}
-    for label in label_data['labels']:
-        label_dict[label['name']] = label['id']
+    for label in label_data["labels"]:
+        label_dict[label["name"]] = label["id"]
     return label_dict
 
+
 def compare_label(label_list, module):
-    '''Check to see if the label already exists'''
-    label=module.params["name"]
+    """Check to see if the label already exists"""
+    label = module.params["name"]
     if label in label_list:
         print(f"Label {label} exists")
         function_return = label_list[label]
@@ -134,14 +140,17 @@ def compare_label(label_list, module):
         function_return = False
     return function_return
 
-def delete_label(base_url,api_version,auth,module,label_id):
-    '''Deletes the site'''
+
+def delete_label(base_url, api_version, auth, module, label_id):
+    """Deletes the site"""
     print("Deleting Site...")
     url = f"{base_url}/label/{api_version}/labels/{label_id}"
     payload = {}
     headers = auth
     try:
-        response = requests.request("DELETE", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "DELETE", url, headers=headers, data=payload, timeout=20
+        )
         if response.status_code == 200:
             function_return = "OK"
         else:
@@ -150,47 +159,52 @@ def delete_label(base_url,api_version,auth,module,label_id):
         module.fail_json(msg=to_text(exc))
     return function_return
 
-def create_label(base_url,api_version,auth,module,site_object):
-    '''Creates a site'''
+
+def create_label(base_url, api_version, auth, module, site_object):
+    """Creates a site"""
     print("Creating Label...")
     url = f"{base_url}/label/{api_version}/labels"
 
-    payload = json.dumps({
-        "label": site_object
-        })
+    payload = json.dumps({"label": site_object})
     headers = auth
     try:
-        response = requests.request("POST", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "POST", url, headers=headers, data=payload, timeout=20
+        )
         label_data = response.json()
         if response.status_code == 200:
-            function_return = label_data['label']['id']
+            function_return = label_data["label"]["id"]
         else:
             module.fail_json(msg=response.text)
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
     return function_return
 
+
 def main():
     """Main function for the program starts here"""
     argument_spec = dict(
-        name=dict(type='str', required=True),
-        color=dict(type='str', required=False, default="#007090"),
-        email=dict(type='str', required=False, default=os.environ['KENTIK_EMAIL']),
-        token=dict(type='str', no_log=True, required=False, default=os.environ['KENTIK_TOKEN']),
+        name=dict(type="str", required=True),
+        color=dict(type="str", required=False, default="#007090"),
+        email=dict(type="str", required=False, default=os.environ["KENTIK_EMAIL"]),
+        token=dict(
+            type="str", no_log=True, required=False, default=os.environ["KENTIK_TOKEN"]
+        ),
         region=dict(type="str", required=False, default=os.environ["KENTIK_REGION"]),
-        state=dict(default="present", choices=["present", "absent"])
+        state=dict(default="present", choices=["present", "absent"]),
     )
     module = AnsibleModule(
         argument_spec=argument_spec,
+        supports_check_mode=True,
     )
     result = {"changed": False}
     warnings = list()
-    state = module.params['state']
+    state = module.params["state"]
     auth = {
-        'X-CH-Auth-Email': module.params['email'], 
-        'X-CH-Auth-API-Token': module.params['token'], 
-        'Content-Type': 'application/json'
-        }
+        "X-CH-Auth-Email": module.params["email"],
+        "X-CH-Auth-API-Token": module.params["token"],
+        "Content-Type": "application/json",
+    }
     if module.params["region"] == "EU":
         base_url = "https://grpc.api.kentik.eu"
     else:
@@ -199,7 +213,7 @@ def main():
     site_object = build_payload(module)
     result = {"changed": False}
     warnings = list()
-    label_list = gather_labels(base_url,api_version,auth,module)
+    label_list = gather_labels(base_url, api_version, auth, module)
     label_exists = compare_label(label_list, module)
 
     if label_exists:
@@ -207,16 +221,17 @@ def main():
             result["changed"] = False
             result["label_id"] = label_exists
         elif state == "absent":
-            label_id = delete_label(base_url,api_version,auth,module,label_exists)
+            label_id = delete_label(base_url, api_version, auth, module, label_exists)
             result["changed"] = True
     else:
         if state == "present":
-            label_id = create_label(base_url,api_version,auth,module,site_object)
+            label_id = create_label(base_url, api_version, auth, module, site_object)
             result["changed"] = True
             result["label_id"] = label_id
         elif state == "absent":
             result["changed"] = False
     module.exit_json(**result)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

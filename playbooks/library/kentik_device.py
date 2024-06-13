@@ -2,10 +2,11 @@
 
 # Copyright: (c) 2018, Terry Jones <terry.jones@example.org>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
-from __future__ import (absolute_import, division, print_function)
+from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: kentik_device
 
@@ -188,9 +189,9 @@ options:
 
 author:
     - Ethan Angele (@kentikethan)
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 # Pass in a message
 - name: Create a device
   kentik_device:
@@ -216,9 +217,9 @@ EXAMPLES = r'''
 - name: Test failure of the module
   kentik_device:
     name: just_the_name_nothing_else_fail
-'''
+"""
 
-RETURN = r'''
+RETURN = r"""
 # These are examples of possible return values, and in general should use other names for return values.
 original_message:
     description: The original name param that was passed in.
@@ -230,22 +231,23 @@ message:
     type: str
     returned: always
     sample: 'goodbye'
-'''
+"""
 
 import json
 import os
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_text
 import requests
-from kentik_site import (gather_sites, compare_site)
-from kentik_label import (gather_labels)
+from kentik_site import gather_sites, compare_site
+from kentik_label import gather_labels
 
-def build_labels(base_url,api_version,auth,module):
-    '''Function to build the list of labels to be added to a device'''
+
+def build_labels(base_url, api_version, auth, module):
+    """Function to build the list of labels to be added to a device"""
     api_version = "v202210"
-    current_labels = gather_labels(base_url,api_version,auth,module)
+    current_labels = gather_labels(base_url, api_version, auth, module)
     label_ids = []
-    for label in module.params['labels']:
+    for label in module.params["labels"]:
         if label in current_labels:
             label_ids.append(current_labels[label])
         elif label == "":
@@ -254,31 +256,33 @@ def build_labels(base_url,api_version,auth,module):
             module.fail_json(msg=f"Label {label} does not exist.")
     return label_ids
 
+
 def build_payload(base_url, auth, module):
-    '''Function to build the device object payload by removing unnecessary items.'''
+    """Function to build the device object payload by removing unnecessary items."""
     payload = module.params
-    del payload['email']
-    del payload['token']
-    del[payload['state']]
-    payload['title'] = module.params['site_name']
-    del[payload['site_name']]
+    del payload["email"]
+    del payload["token"]
+    del [payload["state"]]
+    payload["title"] = module.params["site_name"]
+    del [payload["site_name"]]
     # REMEMBER TO PASS THE CORRECT API VERSION FOR SITES HERE
-    site_list = gather_sites(base_url,"/site/v202211",auth,module)
+    site_list = gather_sites(base_url, "/site/v202211", auth, module)
     site_id = compare_site(site_list, module)
     if site_id is False:
         module.fail_json(msg=f"Site {payload['title']} does not exist.")
-    payload['site_id'] = int(site_id)
-    plan_dict = gather_plans(auth,module)
-    plan_id = compare_plan(plan_dict,module)
-    payload['plan_id'] = int(plan_id)
-    del[payload['plan_name']]
-    del[payload['labels']]
-    del[payload['title']]
+    payload["site_id"] = int(site_id)
+    plan_dict = gather_plans(auth, module)
+    plan_id = compare_plan(plan_dict, module)
+    payload["plan_id"] = int(plan_id)
+    del [payload["plan_name"]]
+    del [payload["labels"]]
+    del [payload["title"]]
     del [payload["region"]]
     return payload
 
-def gather_plans(auth,module):
-    '''Function to gather a list of existing plans'''
+
+def gather_plans(auth, module):
+    """Function to gather a list of existing plans"""
     if module.params["region"] == "EU":
         url = "https://api.kentik.eu/api/v5/plans"
     else:
@@ -286,21 +290,24 @@ def gather_plans(auth,module):
     payload = {}
     headers = auth
     try:
-        response = requests.request("GET", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "GET", url, headers=headers, data=payload, timeout=20
+        )
         if response.status_code == 200:
             plan_data = response.json()
         else:
-            module.fail_json(function='gatherPlans',msg=response.text)
+            module.fail_json(function="gatherPlans", msg=response.text)
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
     plan_dict = {}
-    for plan in plan_data['plans']:
-        plan_dict[plan['name']] = plan['id']
+    for plan in plan_data["plans"]:
+        plan_dict[plan["name"]] = plan["id"]
     return plan_dict
 
+
 def compare_plan(plan_dict, module):
-    '''Function to determine whether the plan exists'''
-    plan=module.params["plan_name"]
+    """Function to determine whether the plan exists"""
+    plan = module.params["plan_name"]
     if plan in plan_dict:
         print("Plan exists")
     else:
@@ -308,45 +315,52 @@ def compare_plan(plan_dict, module):
         module.fail_json(msg=f"Plan {plan} does not exist.")
     return plan_dict[plan]
 
-def gather_devices(base_url,api_version,auth,module):
-    '''Function to gather a list of devices for comparison'''
+
+def gather_devices(base_url, api_version, auth, module):
+    """Function to gather a list of devices for comparison"""
     url = f"{base_url}/device/{api_version}/device"
     payload = {}
     headers = auth
 
     try:
-        response = requests.request("GET", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "GET", url, headers=headers, data=payload, timeout=20
+        )
         device_data = response.json()
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
     device_dict = {}
-    for device in device_data['devices']:
-        device_dict[device['deviceName']] = device['id']
+    for device in device_data["devices"]:
+        device_dict[device["deviceName"]] = device["id"]
 
     return device_dict
 
+
 def compare_device(device_list, module):
-    '''Function to determine whether a device already exists'''
-    device=module.params["device_name"]
+    """Function to determine whether a device already exists"""
+    device = module.params["device_name"]
     if device in device_list:
-        print('Device exists')
+        print("Device exists")
         function_return = device_list[device]
     else:
         print("Device does not exists")
         function_return = False
     return function_return
 
-def compare_labels(base_url,api_version,auth,module,device_id,labels):
-    '''Function to compare labels on a device to determine if it needs updated.'''
+
+def compare_labels(base_url, api_version, auth, module, device_id, labels):
+    """Function to compare labels on a device to determine if it needs updated."""
     url = f"{base_url}/device/{api_version}/device/{device_id}"
     payload = {}
     headers = auth
     try:
-        response = requests.request("GET", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "GET", url, headers=headers, data=payload, timeout=20
+        )
         if response.status_code == 200:
             device_data = response.json()
             device_labels = []
-            for device_label in device_data['device']['labels']:
+            for device_label in device_data["device"]["labels"]:
                 device_labels.append(device_label["id"])
             if labels == device_labels:
                 function_return = False
@@ -355,17 +369,20 @@ def compare_labels(base_url,api_version,auth,module,device_id,labels):
         else:
             module.fail_json(msg=response.text)
     except ConnectionError as exc:
-        module.fail_json(function='compareLables',msg=to_text(exc))
+        module.fail_json(function="compareLables", msg=to_text(exc))
     return function_return
 
-def delete_device(base_url,api_version,auth,device_id,module):
-    '''Function to delete a device from Kentik'''
+
+def delete_device(base_url, api_version, auth, device_id, module):
+    """Function to delete a device from Kentik"""
     print("Deleting Site...")
     url = f"{base_url}/device/{api_version}/device/{device_id}"
     payload = {}
     headers = auth
     try:
-        response = requests.request("DELETE", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "DELETE", url, headers=headers, data=payload, timeout=20
+        )
         if response.status_code == 200:
             print("Device deleted successfully")
         else:
@@ -373,29 +390,33 @@ def delete_device(base_url,api_version,auth,device_id,module):
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
 
-def create_device(base_url,api_version,auth,module,device_object):
-    '''Function to add a device to kentik'''
+
+def create_device(base_url, api_version, auth, module, device_object):
+    """Function to add a device to kentik"""
     print("Creating Device...")
     url = f"{base_url}/device/{api_version}/device"
-    payload = json.dumps({
-        "device": device_object
-        })
+    payload = json.dumps({"device": device_object})
     headers = auth
     try:
-        response = requests.request("POST", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "POST", url, headers=headers, data=payload, timeout=20
+        )
         if response.status_code == 200:
             device_data = response.json()
         else:
-            module.fail_json(function="create_device",
-                             stats_code=response.status_code,
-                             msg=response.text)
+            module.fail_json(
+                function="create_device",
+                stats_code=response.status_code,
+                msg=response.text,
+            )
     except ConnectionError as exc:
-        module.fail_json(function='create_device',msg=to_text(exc))
-    
-    return device_data['device']['id']
+        module.fail_json(function="create_device", msg=to_text(exc))
 
-def update_device_labels(base_url,api_version,auth,module,device_id,labels):
-    ''' Function to add or update device labels'''
+    return device_data["device"]["id"]
+
+
+def update_device_labels(base_url, api_version, auth, module, device_id, labels):
+    """Function to add or update device labels"""
     print("Updating Device Labels...")
     url = f"{base_url}/device/{api_version}/device/{device_id}/labels"
     headers = auth
@@ -403,78 +424,90 @@ def update_device_labels(base_url,api_version,auth,module,device_id,labels):
     for label in labels:
         label_dict = {"id": int(label)}
         labels_list.append(label_dict)
-    payload = json.dumps({
-        "id": device_id,
-        "labels": labels_list
-    })
+    payload = json.dumps({"id": device_id, "labels": labels_list})
     try:
-        response = requests.request("PUT", url, headers=headers, data=payload, timeout=20)
+        response = requests.request(
+            "PUT", url, headers=headers, data=payload, timeout=20
+        )
         if response.status_code == 200:
             device_data = response.json()
         else:
-            module.fail_json(function='update_device_labels',msg=response.text)
+            module.fail_json(function="update_device_labels", msg=response.text)
     except ConnectionError as exc:
-        module.fail_json(function='update_device_labels',msg=to_text(exc))
-    return device_data['device']['id']
+        module.fail_json(function="update_device_labels", msg=to_text(exc))
+    return device_data["device"]["id"]
+
 
 def main():
-    '''The main function of the program'''
+    """The main function of the program"""
     base_url = "https://grpc.api.kentik.com"
     argument_spec = dict(
-        device_name=dict(type='str', required=True),
-        device_description=dict(type='str', required=False, default='Added by Ansible'),
-        device_subtype=dict(type='str', required=False, default='router',choices=[
-            'router', 
-            'host-nprobe-dns-www', 
-            'aws-subnet', 'azure_subnet', 
-            'cisco_asa', 
-            'gcp-subnet', 
-            'istio_beta', 
-            'open_nms', 
-            'paloalto',
-            'silverpeak']),
-        cdn_attr=dict(type='str', required=False, choices=['y','n']),
-        device_sample_rate=dict(type='int', required=False, default=1),
-        plan_name=dict(type='str', required=True),
-        site_name=dict(type='str', required=False),
-        sending_ips=dict(type='list', required=True),
-        minimize_snmp=dict(type='bool', required=False, default=False),
-        device_snmp_ip=dict(type='str', required=False),
-        device_snmp_community=dict(type='str', required=False),
-        device_snmp_v3_conf=dict(type='dict', required=False),
-        device_bgp_type=dict(type='str', required=False, choices=[
-            'none',
-            'device',
-            'other_device'], default='none'),
-        device_bgp_neighbor_ip=dict(type='str', required=False),
-        device_bgp_neighbor_ip6=dict(type='str', required=False),
-        device_bgp_neighbor_asn=dict(type='str', required=False),
-        device_bgp_password=dict(type='str', required=False, no_log=True),
-        use_bgp_device_id=dict(type='int', required=False),
-        device_bgp_flowspec=dict(type='bool', required=False),
-        nms=dict(type='dict', required=False),
-        labels=dict(type='list',required=False),
-        email=dict(type='str', required=False, default=os.environ['KENTIK_EMAIL']),
-        token=dict(type='str', no_log=True, required=False, default=os.environ['KENTIK_TOKEN']),
+        device_name=dict(type="str", required=True),
+        device_description=dict(type="str", required=False, default="Added by Ansible"),
+        device_subtype=dict(
+            type="str",
+            required=False,
+            default="router",
+            choices=[
+                "router",
+                "host-nprobe-dns-www",
+                "aws-subnet",
+                "azure_subnet",
+                "cisco_asa",
+                "gcp-subnet",
+                "istio_beta",
+                "open_nms",
+                "paloalto",
+                "silverpeak",
+            ],
+        ),
+        cdn_attr=dict(type="str", required=False, choices=["y", "n"]),
+        device_sample_rate=dict(type="int", required=False, default=1),
+        plan_name=dict(type="str", required=True),
+        site_name=dict(type="str", required=False),
+        sending_ips=dict(type="list", required=True),
+        minimize_snmp=dict(type="bool", required=False, default=False),
+        device_snmp_ip=dict(type="str", required=False),
+        device_snmp_community=dict(type="str", required=False),
+        device_snmp_v3_conf=dict(type="dict", required=False),
+        device_bgp_type=dict(
+            type="str",
+            required=False,
+            choices=["none", "device", "other_device"],
+            default="none",
+        ),
+        device_bgp_neighbor_ip=dict(type="str", required=False),
+        device_bgp_neighbor_ip6=dict(type="str", required=False),
+        device_bgp_neighbor_asn=dict(type="str", required=False),
+        device_bgp_password=dict(type="str", required=False, no_log=True),
+        use_bgp_device_id=dict(type="int", required=False),
+        device_bgp_flowspec=dict(type="bool", required=False),
+        nms=dict(type="dict", required=False),
+        labels=dict(type="list", required=False),
+        email=dict(type="str", required=False, default=os.environ["KENTIK_EMAIL"]),
+        token=dict(
+            type="str", no_log=True, required=False, default=os.environ["KENTIK_TOKEN"]
+        ),
         region=dict(type="str", required=False, default=os.environ["KENTIK_REGION"]),
-        state=dict(default="present", choices=["present", "absent"])
+        state=dict(default="present", choices=["present", "absent"]),
     )
     module = AnsibleModule(
         argument_spec=argument_spec,
+        supports_check_mode=True,
     )
     result = {"changed": False}
-    state = module.params['state']
+    state = module.params["state"]
     auth = {
-        'X-CH-Auth-Email': module.params['email'], 
-        'X-CH-Auth-API-Token': module.params['token'], 
-        'Content-Type': 'application/json'
-        }
+        "X-CH-Auth-Email": module.params["email"],
+        "X-CH-Auth-API-Token": module.params["token"],
+        "Content-Type": "application/json",
+    }
     if module.params["region"] == "EU":
         base_url = "https://grpc.api.kentik.eu"
     else:
         base_url = "https://grpc.api.kentik.com"
     api_version = "v202308beta1"
-    if module.params['labels']:
+    if module.params["labels"]:
         print("Labels found")
         labels = build_labels(base_url, api_version, auth, module)
     else:
@@ -482,27 +515,30 @@ def main():
         labels = False
     device_object = build_payload(base_url, auth, module)
     result = {"changed": False}
-    device_list = gather_devices(base_url,api_version,auth,module)
+    device_list = gather_devices(base_url, api_version, auth, module)
     device_id = compare_device(device_list, module)
 
     if device_id:
-        labels = compare_labels(base_url,api_version,auth,module,device_id,labels)
+        labels = compare_labels(base_url, api_version, auth, module, device_id, labels)
         if state == "present":
             result["changed"] = False
         elif state == "absent":
-            delete_device(base_url,api_version,auth,device_id,module)
+            delete_device(base_url, api_version, auth, device_id, module)
             result["changed"] = True
     else:
         if state == "present":
-            device_id = create_device(base_url,api_version,auth,module,device_object)
+            device_id = create_device(
+                base_url, api_version, auth, module, device_object
+            )
             result["changed"] = True
-            result['device_id'] = device_id
+            result["device_id"] = device_id
         elif state == "absent":
             result["changed"] = False
     if labels and len(labels) > 0:
-        update_device_labels(base_url,api_version,auth,module,device_id,labels)
+        update_device_labels(base_url, api_version, auth, module, device_id, labels)
         result["changed"] = True
     module.exit_json(**result)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
