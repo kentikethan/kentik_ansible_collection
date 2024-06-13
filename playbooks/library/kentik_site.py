@@ -103,7 +103,8 @@ import json
 import os
 
 
-def buildPayload(module):
+def build_payload(module):
+    '''Build the payload'''
     payload = module.params
     del payload["email"]
     del payload["token"]
@@ -112,13 +113,14 @@ def buildPayload(module):
     return payload
 
 
-def gatherSites(base_url, api_version, auth, module):
+def gather_sites(base_url, api_version, auth, module):
+    '''Gather a list of sites'''
     url = f"{base_url}{api_version}/sites"
 
     payload = {}
     headers = auth
     try:
-        response = requests.request("GET", url, headers=headers, data=payload)
+        response = requests.request("GET", url, headers=headers, data=payload, timeout=20)
         site_data = response.json()
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
@@ -128,49 +130,56 @@ def gatherSites(base_url, api_version, auth, module):
     return site_dict
 
 
-def compareSite(site_list, module):
+def compare_site(site_list, module):
+    '''Check to see if the site exists'''
     site = module.params["title"]
     if site in site_list:
         print("Site exists")
-        return site_list[site]
+        function_return = site_list[site]
     else:
         print("Site does not exists")
-        return False
+        function_return = False
+    return function_return
 
 
-def deleteSite(base_url, api_version, auth, site_id, module):
+def delete_site(base_url, api_version, auth, site_id, module):
+    '''Function to delete a site'''
     print("Deleting Site...")
     url = f"{base_url}{api_version}/sites/{site_id}"
     payload = {}
     headers = auth
     try:
-        response = requests.request("DELETE", url, headers=headers, data=payload)
+        response = requests.request("DELETE", url, headers=headers, data=payload, timeout=20)
         if response.status_code == 200:
-            return
+            function_return = "ok"
         else:
             module.fail_json(msg=response.text)
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
+    return function_return
 
 
-def createSite(base_url, api_version, auth, site_object, module):
+def create_site(base_url, api_version, auth, site_object, module):
+    '''Function for creating the site'''
     print("Creating Site...")
     url = f"{base_url}{api_version}/sites"
 
     payload = json.dumps({"site": site_object})
     headers = auth
     try:
-        response = requests.request("POST", url, headers=headers, data=payload)
+        response = requests.request("POST", url, headers=headers, data=payload, timeout=20)
         if response.status_code == 200:
             site_data = response.json()
-            return site_data["site"]["id"]
+            function_return = site_data["site"]["id"]
         else:
             module.fail_json(msg=response.text)
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
+    return function_return
 
 
 def main():
+    '''Main function for the program'''
     argument_spec = dict(
         title=dict(type="str", required=True),
         postalAddress=dict(type="dict", required=False),
@@ -193,7 +202,7 @@ def main():
             type="str", no_log=True, required=False, default=os.environ["KENTIK_TOKEN"]
         ),
         state=dict(default="present", choices=["present", "absent"]),
-        region=dict(type="str", default="US", choices=["US", "EU"]),
+        region=dict(type="str", required=False, default=os.environ["KENTIK_REGION"]),
         siteMarket=dict(type="str", required=False),
     )
     module = AnsibleModule(
@@ -213,20 +222,20 @@ def main():
     else:
         base_url = "https://grpc.api.kentik.com/site/"
     api_version = "v202211"
-    site_object = buildPayload(module)
-    site_list = gatherSites(base_url, api_version, auth, module)
-    site_exists = compareSite(site_list, module)
+    site_object = build_payload(module)
+    site_list = gather_sites(base_url, api_version, auth, module)
+    site_exists = compare_site(site_list, module)
 
     if site_exists:
         if state == "present":
             result["changed"] = False
             result["site_id"] = site_exists
         elif state == "absent":
-            deleteSite(base_url, api_version, auth, site_exists, module)
+            delete_site(base_url, api_version, auth, site_exists, module)
             result["changed"] = True
     else:
         if state == "present":
-            site_id = createSite(base_url, api_version, auth, site_object, module)
+            site_id = create_site(base_url, api_version, auth, site_object, module)
             result["changed"] = True
             result["site_id"] = site_id
         elif state == "absent":

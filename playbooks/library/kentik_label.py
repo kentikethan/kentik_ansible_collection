@@ -96,7 +96,8 @@ import requests
 import json
 import os
 
-def buildPayload(module):
+def build_payload(module):
+    '''Build the request payload'''
     payload = module.params
     del payload['email']
     del payload['token']
@@ -104,12 +105,13 @@ def buildPayload(module):
     del [payload["region"]]
     return payload
 
-def gatherLabels(base_url,api_version,auth,module):
+def gather_labels(base_url,api_version,auth,module):
+    '''Gather the current list of labels'''
     url = f"{base_url}/label/{api_version}/labels"
     payload = {}
     headers = auth
     try:
-        response = requests.request("GET", url, headers=headers, data=payload)
+        response = requests.request("GET", url, headers=headers, data=payload, timeout=20)
         if response.status_code == 200:
             label_data = response.json()
         else:
@@ -121,30 +123,35 @@ def gatherLabels(base_url,api_version,auth,module):
         label_dict[label['name']] = label['id']
     return label_dict
 
-def compareLabel(label_list, module):
+def compare_label(label_list, module):
+    '''Check to see if the label already exists'''
     label=module.params["name"]
     if label in label_list:
         print(f"Label {label} exists")
-        return label_list[label]
+        function_return = label_list[label]
     else:
-        print(f"Label does not exists...")
-        return False
+        print("Label does not exists...")
+        function_return = False
+    return function_return
 
-def deleteLabel(base_url,api_version,auth,module,label_id):
+def delete_label(base_url,api_version,auth,module,label_id):
+    '''Deletes the site'''
     print("Deleting Site...")
     url = f"{base_url}/label/{api_version}/labels/{label_id}"
     payload = {}
     headers = auth
     try:
-        response = requests.request("DELETE", url, headers=headers, data=payload)
+        response = requests.request("DELETE", url, headers=headers, data=payload, timeout=20)
         if response.status_code == 200:
-            return
+            function_return = "OK"
         else:
             module.fail_json(msg=response.text)
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
+    return function_return
 
-def createLabel(base_url,api_version,auth,module,site_object):
+def create_label(base_url,api_version,auth,module,site_object):
+    '''Creates a site'''
     print("Creating Label...")
     url = f"{base_url}/label/{api_version}/labels"
 
@@ -153,22 +160,24 @@ def createLabel(base_url,api_version,auth,module,site_object):
         })
     headers = auth
     try:
-        response = requests.request("POST", url, headers=headers, data=payload)
+        response = requests.request("POST", url, headers=headers, data=payload, timeout=20)
         label_data = response.json()
         if response.status_code == 200:
-             return label_data['label']['id']
+            function_return = label_data['label']['id']
         else:
             module.fail_json(msg=response.text)
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
+    return function_return
 
 def main():
+    """Main function for the program starts here"""
     argument_spec = dict(
         name=dict(type='str', required=True),
         color=dict(type='str', required=False, default="#007090"),
         email=dict(type='str', required=False, default=os.environ['KENTIK_EMAIL']),
         token=dict(type='str', no_log=True, required=False, default=os.environ['KENTIK_TOKEN']),
-        region=dict(type="str", default="US", choices=["US", "EU"]),
+        region=dict(type="str", required=False, default=os.environ["KENTIK_REGION"]),
         state=dict(default="present", choices=["present", "absent"])
     )
     module = AnsibleModule(
@@ -187,22 +196,22 @@ def main():
     else:
         base_url = "https://grpc.api.kentik.com"
     api_version = "v202210"
-    site_object = buildPayload(module)
+    site_object = build_payload(module)
     result = {"changed": False}
     warnings = list()
-    label_list = gatherLabels(base_url,api_version,auth,module)
-    label_exists = compareLabel(label_list, module)
+    label_list = gather_labels(base_url,api_version,auth,module)
+    label_exists = compare_label(label_list, module)
 
     if label_exists:
         if state == "present":
             result["changed"] = False
             result["label_id"] = label_exists
         elif state == "absent":
-            label_id = deleteLabel(base_url,api_version,auth,module,label_exists)
+            label_id = delete_label(base_url,api_version,auth,module,label_exists)
             result["changed"] = True
     else:
         if state == "present":
-            label_id = createLabel(base_url,api_version,auth,module,site_object)
+            label_id = create_label(base_url,api_version,auth,module,site_object)
             result["changed"] = True
             result["label_id"] = label_id
         elif state == "absent":
