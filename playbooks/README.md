@@ -30,6 +30,7 @@ The following playbooks are available today for managing Kentik with Ansible:
     - KENTIK_EMAIL
     - KENTIK_TOKEN
     - NAUTOBOT_TOKEN
+    - KENTIK_REGION
   - Be sure to create the credential file with other local creds. 
   
 -- happy automating

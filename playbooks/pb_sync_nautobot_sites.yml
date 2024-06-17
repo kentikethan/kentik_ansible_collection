@@ -1,4 +1,7 @@
 ---
+# Playbook to sync all Nautobot locations to Kentik sites
+# requires networktocode.nautobot collection
+
 - name: "MAIN >> SYNC ALL NAUTOBOT LOCATIONS TO KENTIK SITES"
   hosts: localhost
   connection: local
@@ -32,8 +35,7 @@
     - name: Get Query Response
       set_fact:
         query_response: "{{ query('networktocode.nautobot.lookup_graphql', query_string, url=nautobot_host, token=nautobot_token) }}"
-
-          
+         
     - name: Create Kentik Sites
       loop: "{{ query_response[0].data.locations }}"
       loop_control:

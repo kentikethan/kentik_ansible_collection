@@ -1,0 +1,61 @@
+---
+# Playbook to sync all Nautobot devices to Kentik
+# requires networktocode.nautobot collection
+
+- name: "MAIN >> SYNC ALL NAUTOBOT DEVICES TO KENTIK"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+     - ./vars/credentials.yml
+
+  tasks:
+    - name: Fetch Devices from Nautobot
+      set_fact:
+        query_string: |
+          query  {
+            devices  (role: ["Netflow Device"]) {
+              id
+              name
+              location {
+                name
+              }
+              role {
+                name
+              }
+              status {
+                name
+              }
+              tenant {
+                name
+              }
+              tags {
+                name
+              }
+              primary_ip4 {
+                host
+              }
+            }
+          }
+      
+    - name: Get Query Response
+      set_fact:
+        query_response: "{{ query('networktocode.nautobot.lookup_graphql', query_string, url=nautobot_host, token=nautobot_token) }}"
+    
+    - name: Create Device
+      loop: "{{ query_response[0].data.devices }}"
+      loop_control:
+        loop_var: item
+      kentik_device:
+        device_name: "{{ item.name }}"
+        device_sample_rate: 10
+        plan_name: Free Flowpak Plan
+        site_name: "{{ item.location.name }}"
+        sending_ips: ["{{ item.primary_ip4.host }}"]
+        device_snmp_ip: "{{ item.primary_ip4.host }}"
+        device_snmp_community: kentik
+        region: "EU"
+      delegate_to: localhost
+      environment:
+       PYTHONPATH: ${ANSIBLE_LIBRARY}:{{playbook_dir}}/library
+       ANSIBLE_LIBRARY: ${ANSIBLE_LIBRARY}:{{playbook_dir}}/library
