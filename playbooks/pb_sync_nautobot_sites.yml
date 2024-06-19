@@ -1,0 +1,62 @@
+---
+# Playbook to sync all Nautobot locations to Kentik sites
+# requires networktocode.nautobot collection
+
+- name: "MAIN >> SYNC ALL NAUTOBOT LOCATIONS TO KENTIK SITES"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+     - ./vars/credentials.yml
+
+  tasks:
+    - name: Fetch Locations from Nautobot
+      set_fact:
+        query_string: |
+          query  {
+            locations  (location_type: ["Site"]) {
+              id
+              name
+              latitude
+              longitude
+              physical_address
+              parent {
+                name
+                parent {
+                  name
+                  parent {
+                    name
+                  }
+                }
+              }
+            }
+          }
+      
+    - name: Get Query Response
+      set_fact:
+        query_response: "{{ query('networktocode.nautobot.lookup_graphql', query_string, url=nautobot_host, token=nautobot_token) }}"
+         
+    - name: Create Kentik Sites
+      loop: "{{ query_response[0].data.locations }}"
+      loop_control:
+        loop_var: item
+      kentik_site:
+        title: "{{ item.name }}"
+        lat: "{{ item.latitude | float }}"
+        lon: "{{ item.longitude | float }}"
+        postalAddress:
+          address: "{{ item.physical_address | default('') }}"
+          city: "{{ (item.physical_address | regex_search('\n(.*),', '\\1') or ['']) | first }}"
+          region: "{{ item.parent.name | default('') }}"
+          country: "{{ item.parent.parent.name | default('') }}"
+        siteMarket: "{{ item.parent.parent.parent.name | default('') }}"
+        state: present
+        # Refers to Kentik cluster region. Choices are EU or US.
+        region: "EU"
+        
+            
+      
+      
+
+      
+  

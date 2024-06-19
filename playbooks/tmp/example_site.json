@@ -1,0 +1,13 @@
+{
+    "ANSIBLE_MODULE_ARGS": {
+        "title": "PF1",
+        "postalAddress": {
+            "address": "W 7th Ave, Post Falls, ID 83854, USA",
+            "city": "Post Falls",
+            "region": "Idaho",
+            "country": "US"
+        },
+        "type": "SITE_TYPE_DATA_CENTER",
+        "state": "present"
+    }
+}
