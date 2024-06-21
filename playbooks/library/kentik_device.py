@@ -463,11 +463,14 @@ def update_check(base_url, api_version, auth, module, device_id, device_object):
             module.fail_json(function="update_device_labels", msg=response.text)
     except ConnectionError as exc:
         module.fail_json(function="update_device_labels", msg=to_text(exc))
-    if "port" in device_object["nms"]["snmp"]:
-        print("Port is configured in nms settings...")
-        device_object["nms"]["snmp"]["port"] = int(device_object["nms"]["snmp"]["port"])
-    else:
-        del [device_data["device"]["nms"]["snmp"]["port"]]
+
+    if "nms" in device_object:
+        print("NMS will be configured...")
+        if "port" in device_object["nms"]["snmp"]:
+            print("Port is configured in nms settings...")
+            device_object["nms"]["snmp"]["port"] = int(device_object["nms"]["snmp"]["port"])
+        elif "nms" in device_data["device"]:
+            del [device_data["device"]["nms"]["snmp"]["port"]]
     return_bool = False
     if int(device_data["device"]["site"]["id"]) != int(device_object["siteId"]):
         print("Site does not match...updating...")
@@ -480,9 +483,13 @@ def update_check(base_url, api_version, auth, module, device_id, device_object):
         del [device_object["planId"]]
         del [device_object["deviceSnmpCommunity"]]
         for key in device_object:
-            if str(device_data["device"][key]) != str(device_object[key]):
-                print(f"Configured {key}: {device_object[key]}  does not match returned {key}: {device_data["device"][key]}")
+            if key not in device_data["device"]:
+                print(f"Configured {key}: {device_object[key]} is not yet configured.")
                 return_bool = True
+            else:
+                if str(device_data["device"][key]) != str(device_object[key]):
+                    print(f"Configured {key}: {device_object[key]} does not match returned {key}: {device_data["device"][key]}")
+                    return_bool = True
     if return_bool is False:
         print("Device is up to date...")
     return return_bool
