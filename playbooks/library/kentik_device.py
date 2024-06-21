@@ -263,21 +263,30 @@ def build_payload(base_url, auth, module):
     del payload["email"]
     del payload["token"]
     del [payload["state"]]
-    payload["title"] = module.params["site_name"]
-    del [payload["site_name"]]
+    payload["title"] = module.params["siteName"]
+    del [payload["siteName"]]
     # REMEMBER TO PASS THE CORRECT API VERSION FOR SITES HERE
     site_list = gather_sites(base_url, "/site/v202211", auth, module)
     site_id = compare_site(site_list, module)
     if site_id is False:
         module.fail_json(msg=f"Site {payload['title']} does not exist.")
-    payload["site_id"] = int(site_id)
+    payload["siteId"] = int(site_id)
     plan_dict = gather_plans(auth, module)
     plan_id = compare_plan(plan_dict, module)
-    payload["plan_id"] = int(plan_id)
-    del [payload["plan_name"]]
+    payload["planId"] = int(plan_id)
+    del [payload["planName"]]
     del [payload["labels"]]
     del [payload["title"]]
     del [payload["region"]]
+    none_keys = []
+    for key in payload:
+        if payload[key] is None:
+            none_keys.append(key)
+    for key in none_keys:
+        del [payload[key]]
+    if "nms" in payload:
+        if "port" in payload["nms"]["snmp"]:
+            payload["nms"]["snmp"]["port"] = int(payload["nms"]["snmp"]["port"])
     return payload
 
 
@@ -307,7 +316,7 @@ def gather_plans(auth, module):
 
 def compare_plan(plan_dict, module):
     """Function to determine whether the plan exists"""
-    plan = module.params["plan_name"]
+    plan = module.params["planName"]
     if plan in plan_dict:
         print("Plan exists")
     else:
@@ -338,12 +347,12 @@ def gather_devices(base_url, api_version, auth, module):
 
 def compare_device(device_list, module):
     """Function to determine whether a device already exists"""
-    device = module.params["device_name"]
+    device = module.params["deviceName"]
     if device in device_list:
         print("Device exists")
         function_return = device_list[device]
     else:
-        print("Device does not exists")
+        print(f"Device, {device} does not exists")
         function_return = False
     return function_return
 
@@ -437,14 +446,79 @@ def update_device_labels(base_url, api_version, auth, module, device_id, labels)
         module.fail_json(function="update_device_labels", msg=to_text(exc))
     return device_data["device"]["id"]
 
+def update_check(base_url, api_version, auth, module, device_id, device_object):
+    """Function to check whether a device needs to be updated"""
+    print("Checking device update...")
+    url = f"{base_url}/device/{api_version}/device/{device_id}"
+    headers = auth
+    device_data = {}
+    payload = {}
+    try:
+        response = requests.request(
+            "GET", url, headers=headers, data=payload, timeout=20
+        )
+        if response.status_code == 200:
+            device_data = response.json()
+        else:
+            module.fail_json(function="update_device_labels", msg=response.text)
+    except ConnectionError as exc:
+        module.fail_json(function="update_device_labels", msg=to_text(exc))
+    if "port" in device_object["nms"]["snmp"]:
+        print("Port is configured in nms settings...")
+        device_object["nms"]["snmp"]["port"] = int(device_object["nms"]["snmp"]["port"])
+    else:
+        del [device_data["device"]["nms"]["snmp"]["port"]]
+    return_bool = False
+    if int(device_data["device"]["site"]["id"]) != int(device_object["siteId"]):
+        print("Site does not match...updating...")
+        return_bool = True
+    elif int(device_data["device"]["plan"]["id"]) != int(device_object["planId"]):
+        print("Plan IDs don't match...updating")
+        return_bool = True
+    else:
+        del [device_object["siteId"]]
+        del [device_object["planId"]]
+        del [device_object["deviceSnmpCommunity"]]
+        for key in device_object:
+            if str(device_data["device"][key]) != str(device_object[key]):
+                print(f"Configured {key}: {device_object[key]}  does not match returned {key}: {device_data["device"][key]}")
+                return_bool = True
+    if return_bool is False:
+        print("Device is up to date...")
+    return return_bool
+
+def update_device(base_url, api_version, auth, module, device_id, device_object):
+    """Function to update a device to kentik"""
+    print("Updating Device...")
+    url = f"{base_url}/device/{api_version}/device/{device_id}"
+    device_object['id'] = device_id
+    payload = json.dumps({"device": device_object})
+    headers = auth
+    try:
+        response = requests.request(
+            "PUT", url, headers=headers, data=payload, timeout=20
+        )
+        if response.status_code == 200:
+            device_data = response.json()
+        else:
+            module.fail_json(
+                function="update_device",
+                stats_code=response.status_code,
+                msg=response.text,
+            )
+    except ConnectionError as exc:
+        module.fail_json(function="create_device", msg=to_text(exc))
+
+    return device_data["device"]["id"]
+
 
 def main():
     """The main function of the program"""
     base_url = "https://grpc.api.kentik.com"
     argument_spec = dict(
-        device_name=dict(type="str", required=True),
-        device_description=dict(type="str", required=False, default="Added by Ansible"),
-        device_subtype=dict(
+        deviceName=dict(type="str",required= True),
+        deviceDescription=dict(type="str", required=False, default="Added by Ansible"),
+        deviceSubtype=dict(
             type="str",
             required=False,
             default="router",
@@ -461,27 +535,27 @@ def main():
                 "silverpeak",
             ],
         ),
-        cdn_attr=dict(type="str", required=False, choices=["y", "n"]),
-        device_sample_rate=dict(type="int", required=False, default=1),
-        plan_name=dict(type="str", required=True),
-        site_name=dict(type="str", required=False),
-        sending_ips=dict(type="list", required=True),
-        minimize_snmp=dict(type="bool", required=False, default=False),
-        device_snmp_ip=dict(type="str", required=False),
-        device_snmp_community=dict(type="str", required=False),
-        device_snmp_v3_conf=dict(type="dict", required=False),
-        device_bgp_type=dict(
+        cdnAttr=dict(type="str", required=False, choices=["y", "n"]),
+        deviceSampleRate=dict(type="int", required=False, default=1),
+        planName=dict(type="str", required=True),
+        siteName=dict(type="str", required=False),
+        sendingIps=dict(type="list", required=True),
+        minimizeSnmp=dict(type="bool", required=False, default=False),
+        deviceSnmpIp=dict(type="str", required=False),
+        deviceSnmpCommunity=dict(type="str", required=False),
+        deviceSnmpV3Conf=dict(type="dict", required=False),
+        deviceBgpType=dict(
             type="str",
             required=False,
             choices=["none", "device", "other_device"],
             default="none",
         ),
-        device_bgp_neighbor_ip=dict(type="str", required=False),
-        device_bgp_neighbor_ip6=dict(type="str", required=False),
-        device_bgp_neighbor_asn=dict(type="str", required=False),
-        device_bgp_password=dict(type="str", required=False, no_log=True),
-        use_bgp_device_id=dict(type="int", required=False),
-        device_bgp_flowspec=dict(type="bool", required=False),
+        deviceBgpNeighborIp=dict(type="str", required=False),
+        deviceBgpNeighborIp6=dict(type="str", required=False),
+        deviceBgpNeighborAsn=dict(type="str", required=False),
+        deviceBgpPassword=dict(type="str", required=False, no_log=True),
+        useBgpDeviceId=dict(type="int", required=False),
+        deviceBgpFlowspec=dict(type="bool", required=False),
         nms=dict(type="dict", required=False),
         labels=dict(type="list", required=False),
         email=dict(type="str", required=False, default=os.environ["KENTIK_EMAIL"]),
@@ -520,7 +594,11 @@ def main():
 
     if device_id:
         labels = compare_labels(base_url, api_version, auth, module, device_id, labels)
-        if state == "present":
+        needs_updated = update_check(base_url, api_version, auth, module, device_id, device_object)
+        if state == "present" and needs_updated:
+            update_device(base_url, api_version, auth, module, device_id, device_object)
+            result["changed"] = True
+        elif state == "present":
             result["changed"] = False
         elif state == "absent":
             delete_device(base_url, api_version, auth, device_id, module)
