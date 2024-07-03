@@ -1,18 +1,18 @@
 {
     "ANSIBLE_MODULE_ARGS": {
-        "deviceName": "acc_geg_100",
+        "deviceName": "access_switch_100",
         "deviceSampleRate": 10,
         "deviceSnmpCommunity": "kentik",
-        "deviceSnmpIp": "10.1.7.200",
+        "deviceSnmpIp": "192.168.1.100",
         "deviceSubtype": "router",
         "minimizeSnmp": false,
         "planName": "Free Flowpak Plan",
-        "sendingIps": ["10.1.7.200"],
-        "siteName": "GEG",
+        "sendingIps": ["192.168.1.100"],
+        "siteName": "SN1",
         "deviceBgpType": "none",
         "nms": {
             "agentId": "183",
-            "ipAddress": "10.1.7.200",
+            "ipAddress": "192.168.1.100",
             "snmp": {
                 "credentialName": "snmp_v2_read_only"
             }

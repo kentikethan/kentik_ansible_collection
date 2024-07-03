@@ -1,194 +1,119 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
-# Copyright: (c) 2018, Terry Jones <terry.jones@example.org>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
+ANSIBLE_METADATA = {"metadata_version": "1.0", "status": ["preview"], "supported_by": "certified"}
+
 DOCUMENTATION = r"""
 ---
 module: kentik_device
-
-short_description: This is a module that will perform idempoent operations on kentik device management
-
-# If this is part of a collection, you need to use semantic versioning,
-# i.e. the version is of the form "2.5.0" and not "2.4".
+short_description: This is a module that will perform idempotent operations on kentik device management
 version_added: "1.0.0"
-
-description: The module will gather the current list of devices from Kentik and create the device if it is not in the list. 
-
+description: The module will gather the current list of devices from Kentik and create or update the device if it is not in the list.
 options:
-    device_name:
+    deviceName:
         description: The name of the device.
         required: true
         type: str
-    device_description:
+    deviceDescription:
         description: The device description.
-        required: false
         type: str
-    device_subtype:
+        default: Added by Ansible
+    deviceSubtype:
         description: The device subtype.
-        choices: router, host-nprobe-dns-www, aws-subnet, azure_subnet, cisco_asa, gcp-subnet, istio_beta, open_nms, paloalto, silverpeak
-        required: true
+        choices: [ router, host-nprobe-dns-www, aws-subnet, azure_subnet, cisco_asa, gcp-subnet, istio_beta, open_nms, paloalto, silverpeak ]
         type: str
         default: "router"
-    cdn_attr:
-        description: If this is a DNS server, you can contribute its queries to Kentik's CDN attribution database. 
-        Valid values: "None" or "Y" or "N". ** cdn_attr is required when the device subtype's parent type is "host-nprobe-dns-www"
-        required: false
-        default: "none"
-    device_sample_rate:
+    cdnAttr:
+        description: If this is a DNS server, you can contribute its queries to Kentik's CDN attribution database.
+        choices: [ none, y, n ]
+        type: str
+    deviceSampleRate:
         description: The rate at which the device is sampling flows.
-        required: true
         type: int
         default: 1
-    plan_id:
+    planName:
         description: The ID of the plan to which this device is assigned.
         required: true
-        type: int
-    site_id:
-        description: The ID of the site (if any) to which this device is assigned.
-        required: false
         type: str
-    sending_ips:
+    siteName:
+        description: The name of the site (if any) to which this device is assigned.
+        type: str
+    sendingIps:
         description: IP addresses from which the device is sending flow.
         required: true
         type: list
-    minimize_snmp:
+        elements: str
+    minimizeSnmp:
         description: IP addresses from which the device is sending flow.
-        required: false
         type: bool
-        default: False
-    device_snmp_ip:
+    deviceSnmpIp:
         description: IP address from which the device is listening on snmp.
-        required: false
         type: str
-    device_snmp_community:
+    deviceSnmpCommunity:
         description: The SNMP community to use when polling the device.
-        required: false
         type: str
-    device_snmp_v3_conf:
-        username:
-            description: The user name to use to authenticate via SNMP v3. 
-            required: false
-            type: str
-        authentication_protocol:
-            description: The auth protocol to use via SNMP v3.
-            choices: "NoAuth" or "MD5" or "SHA"
-            required: false
-            type: str
-        authentication_passphrase:
-            description: AuthenticationPassphrase - the passphrase to use for SNMP v3.
-            required: false
-            type: str
-        privacy_protocol:
-            description: PrivacyProtocol - the privacy protocol to use to authenticate via SNMP v3.
-            choices: "NoPriv" or "DES" or "AES"
-            required: false
-            type: str
-        privacy_passphrase:
-            description: PrivacyPassphrase - the passphrase to use for SNMP v3 privacy protocol.
-            required: false
-            type: str
-    device_bgp_type:
-        description: BGP (device_bgp_type) - Device bgp type. 
-        Valid values: "none" (use generic IP/ASN mapping), "device" (peer with the device itself), "other_device" (share routing table of existing peered device).
-        required: true
+    deviceSnmpV3Conf:
+        description:
+        - A dictionary with all snmpv3 attributes.
+        - Reference Kentik API Documentation for exact dictionary format.
+        type: dict
+    deviceBgpType:
+        description: BGP (device_bgp_type) - Device bgp type.
+        choices: [ none, device, other_device ]
         type: str
         default: none
-    device_bgp_neighbor_ip:
+    deviceBgpNeighborIp:
         description: Your IPv4 peering address.
-        required: false
         type: str
-    device_bgp_neighbor_ip6:
+    deviceBgpNeighborIp6:
         description: Your IPv6 peering address.
-        required: false
         type: str
-    device_bgp_neighbor_asn:
+    deviceBgpNeighborAsn:
         description: The valid AS number (ASN) of the autonomous system that this device belongs to.
-        required: false
         type: str
-    device_bgp_password:
+    deviceBgpPassword:
         description: Optional BGP MD5 password.
-        required: false
         type: str
-    use_bgp_device_id:
+    useBgpDeviceId:
         description: The ID of the device whose BGP table should be shared with this device.
-        required: false
         type: int
-    device_bgp_flowspec:
+    deviceBgpFlowspec:
         description: Toggle BGP Flowspec Compatibility for device.
-        required: false
         type: bool
     region:
-        description: The reqion that your Kentik portal is located in. 
-        required: false
+        description: The reqion that your Kentik portal is located in.
         type: str
         default: US
-        choices:
-            - US
-            - EU
+        choices: [ US, EU ]
     nms:
-        description: A dictionary for adding NMS SNMP or streaming telemetry to a device.
-        required: false
+        description:
+        - A dictionary for adding NMS SNMP or streaming telemetry to a device.
+        - Reference Kentik API Documentation for exact dictionary format.
         type: dict
-            agentId:
-                description: ID of the agent that is monitoring this device.
-                required: true
-                type: string
-            ipAddress:
-                description: Local IP address of this device.
-                required: true
-                type: string
-            snmp:
-                description: SNMP Config for NMS
-                required: false
-                type: dict
-                    credentialName:
-                        description: Name of the SNMP credentials from the credential vault.
-                        required: true
-                        type: string
-                    port:
-                        description: SNMP port, to override default of 161.
-                        required: false
-                        type: int
-                    timeout:
-                        description: Timeout, to override default of 2s.
-                        required: false
-                        type: string
-            st:
-                description: Steaming telemetry config for NMS
-                required: false
-                type: dict
-                    credentialName:
-                        description: Name of the SNMP credentials from the credential vault.
-                        required: true
-                        type: string
-                    port:
-                        description: SNMP port, to override default of 161.
-                        required: false
-                        type: int
-                    timeout:
-                        description: Timeout, to override default of 2s.
-                        required: false
-                        type: string
-                    secure:
-                        description: Use SSL to connect to this device.
-                        required: true
-                        type: bool
-
-
-
-
-
-# Specify this value according to your collection
-# in format of namespace.collection.doc_fragment_name
-# extends_documentation_fragment:
-#     - my_namespace.my_collection.my_doc_fragment_name
-
+    state:
+        description: Whether to ensure the device should be present or if it should be removed.
+        type: str
+        choices: [present, absent]
+        default: present
+    token:
+        description: The Kentik API Token used to authenticate.
+        type: str
+        required: true
+    email:
+        description: The Kentik API Email used to authenticate.
+        type: str
+        required: true
+    labels:
+        description: Labels that get assigned to the device.
+        type: list
+        elements: str
 author:
-    - Ethan Angele (@kentikethan)
+- Ethan Angele (@kentikethan)
 """
 
 EXAMPLES = r"""
@@ -211,8 +136,6 @@ EXAMPLES = r"""
     deviceBgpPassword: myPreciousPassword
     deviceBgpFlowspec: True
     region: EU
-
-
 # fail the module
 - name: Test failure of the module
   kentik_device:
@@ -234,12 +157,15 @@ message:
 """
 
 import json
-import os
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_text
-import requests
-from kentik_site import gather_sites, compare_site
-from kentik_label import gather_labels
+try:
+    import requests
+    from kentik_site import gather_sites, compare_site
+    from kentik_label import gather_labels
+except ImportError:
+    HAS_ANOTHER_LIBRARY = False
+import logging
 
 
 def build_labels(base_url, api_version, auth, module):
@@ -318,9 +244,9 @@ def compare_plan(plan_dict, module):
     """Function to determine whether the plan exists"""
     plan = module.params["planName"]
     if plan in plan_dict:
-        print("Plan exists")
+        logging.info("Plan exists")
     else:
-        print("Plan does not exists")
+        logging.info("Plan does not exists")
         module.fail_json(msg=f"Plan {plan} does not exist.")
     return plan_dict[plan]
 
@@ -349,10 +275,10 @@ def compare_device(device_list, module):
     """Function to determine whether a device already exists"""
     device = module.params["deviceName"]
     if device in device_list:
-        print("Device exists")
+        logging.info("Device exists")
         function_return = device_list[device]
     else:
-        print(f"Device, {device} does not exists")
+        logging.info("Device, %s does not exists", device)
         function_return = False
     return function_return
 
@@ -384,7 +310,7 @@ def compare_labels(base_url, api_version, auth, module, device_id, labels):
 
 def delete_device(base_url, api_version, auth, device_id, module):
     """Function to delete a device from Kentik"""
-    print("Deleting Site...")
+    logging.info("Deleting Site...")
     url = f"{base_url}/device/{api_version}/device/{device_id}"
     payload = {}
     headers = auth
@@ -393,7 +319,7 @@ def delete_device(base_url, api_version, auth, device_id, module):
             "DELETE", url, headers=headers, data=payload, timeout=20
         )
         if response.status_code == 200:
-            print("Device deleted successfully")
+            logging.info("Device deleted successfully")
         else:
             module.fail_json(msg=response.text)
     except ConnectionError as exc:
@@ -402,7 +328,7 @@ def delete_device(base_url, api_version, auth, device_id, module):
 
 def create_device(base_url, api_version, auth, module, device_object):
     """Function to add a device to kentik"""
-    print("Creating Device...")
+    logging.info("Creating Device...")
     url = f"{base_url}/device/{api_version}/device"
     payload = json.dumps({"device": device_object})
     headers = auth
@@ -426,7 +352,7 @@ def create_device(base_url, api_version, auth, module, device_object):
 
 def update_device_labels(base_url, api_version, auth, module, device_id, labels):
     """Function to add or update device labels"""
-    print("Updating Device Labels...")
+    logging.info("Updating Device Labels...")
     url = f"{base_url}/device/{api_version}/device/{device_id}/labels"
     headers = auth
     labels_list = []
@@ -446,9 +372,10 @@ def update_device_labels(base_url, api_version, auth, module, device_id, labels)
         module.fail_json(function="update_device_labels", msg=to_text(exc))
     return device_data["device"]["id"]
 
+
 def update_check(base_url, api_version, auth, module, device_id, device_object):
     """Function to check whether a device needs to be updated"""
-    print("Checking device update...")
+    logging.info("Checking device update...")
     url = f"{base_url}/device/{api_version}/device/{device_id}"
     headers = auth
     device_data = {}
@@ -463,33 +390,41 @@ def update_check(base_url, api_version, auth, module, device_id, device_object):
             module.fail_json(function="update_device_labels", msg=response.text)
     except ConnectionError as exc:
         module.fail_json(function="update_device_labels", msg=to_text(exc))
-    if "port" in device_object["nms"]["snmp"]:
-        print("Port is configured in nms settings...")
-        device_object["nms"]["snmp"]["port"] = int(device_object["nms"]["snmp"]["port"])
-    else:
-        del [device_data["device"]["nms"]["snmp"]["port"]]
+
+    if "nms" in device_object:
+        logging.info("NMS will be configured...")
+        if "port" in device_object["nms"]["snmp"]:
+            logging.info("Port is configured in nms settings...")
+            device_object["nms"]["snmp"]["port"] = int(device_object["nms"]["snmp"]["port"])
+        elif "nms" in device_data["device"]:
+            del [device_data["device"]["nms"]["snmp"]["port"]]
     return_bool = False
     if int(device_data["device"]["site"]["id"]) != int(device_object["siteId"]):
-        print("Site does not match...updating...")
+        logging.info("Site does not match...updating...")
         return_bool = True
     elif int(device_data["device"]["plan"]["id"]) != int(device_object["planId"]):
-        print("Plan IDs don't match...updating")
+        logging.info("Plan IDs don't match...updating")
         return_bool = True
     else:
         del [device_object["siteId"]]
         del [device_object["planId"]]
         del [device_object["deviceSnmpCommunity"]]
         for key in device_object:
-            if str(device_data["device"][key]) != str(device_object[key]):
-                print(f"Configured {key}: {device_object[key]}  does not match returned {key}: {device_data["device"][key]}")
+            if key not in device_data["device"]:
+                logging.info("Configured %s: %s is not yet configured.", key, device_object[key])
                 return_bool = True
+            else:
+                if str(device_data["device"][key]) != str(device_object[key]):
+                    logging.info("Configured %s: %s does not match returned %s: %s", key, device_object[key], key, device_data["device"][key])
+                    return_bool = True
     if return_bool is False:
-        print("Device is up to date...")
+        logging.info("Device is up to date...")
     return return_bool
+
 
 def update_device(base_url, api_version, auth, module, device_id, device_object):
     """Function to update a device to kentik"""
-    print("Updating Device...")
+    logging.info("Updating Device...")
     url = f"{base_url}/device/{api_version}/device/{device_id}"
     device_object['id'] = device_id
     payload = json.dumps({"device": device_object})
@@ -516,7 +451,7 @@ def main():
     """The main function of the program"""
     base_url = "https://grpc.api.kentik.com"
     argument_spec = dict(
-        deviceName=dict(type="str",required= True),
+        deviceName=dict(type="str", required=True),
         deviceDescription=dict(type="str", required=False, default="Added by Ansible"),
         deviceSubtype=dict(
             type="str",
@@ -535,12 +470,12 @@ def main():
                 "silverpeak",
             ],
         ),
-        cdnAttr=dict(type="str", required=False, choices=["y", "n"]),
+        cdnAttr=dict(type="str", required=False, choices=["none", "y", "n"]),
         deviceSampleRate=dict(type="int", required=False, default=1),
         planName=dict(type="str", required=True),
         siteName=dict(type="str", required=False),
-        sendingIps=dict(type="list", required=True),
-        minimizeSnmp=dict(type="bool", required=False, default=False),
+        sendingIps=dict(type="list", required=True, elements="str"),
+        minimizeSnmp=dict(type="bool", required=False),
         deviceSnmpIp=dict(type="str", required=False),
         deviceSnmpCommunity=dict(type="str", required=False),
         deviceSnmpV3Conf=dict(type="dict", required=False),
@@ -557,13 +492,11 @@ def main():
         useBgpDeviceId=dict(type="int", required=False),
         deviceBgpFlowspec=dict(type="bool", required=False),
         nms=dict(type="dict", required=False),
-        labels=dict(type="list", required=False),
-        email=dict(type="str", required=False, default=os.environ["KENTIK_EMAIL"]),
-        token=dict(
-            type="str", no_log=True, required=False, default=os.environ["KENTIK_TOKEN"]
-        ),
-        region=dict(type="str", required=False, default=os.environ["KENTIK_REGION"]),
-        state=dict(default="present", choices=["present", "absent"]),
+        labels=dict(type="list", required=False, elements="str"),
+        email=dict(type="str", required=True),
+        token=dict(type="str", no_log=True, required=True),
+        region=dict(type="str", required=False, default="US", choices=["US", "EU"]),
+        state=dict(type="str", default="present", choices=["present", "absent"]),
     )
     module = AnsibleModule(
         argument_spec=argument_spec,
@@ -582,10 +515,10 @@ def main():
         base_url = "https://grpc.api.kentik.com"
     api_version = "v202308beta1"
     if module.params["labels"]:
-        print("Labels found")
+        logging.info("Labels found")
         labels = build_labels(base_url, api_version, auth, module)
     else:
-        print("No Labels found")
+        logging.info("No Labels found")
         labels = False
     device_object = build_payload(base_url, auth, module)
     result = {"changed": False}

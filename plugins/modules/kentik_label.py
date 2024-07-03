@@ -1,6 +1,6 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
-# Copyright: (c) 2018, Terry Jones <terry.jones@example.org>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
 
@@ -9,51 +9,39 @@ __metaclass__ = type
 DOCUMENTATION = r"""
 ---
 module: kentik_label
-
-short_description: This is a module that will perform idempoent operations on kentik label management. 
-
-# If this is part of a collection, you need to use semantic versioning,
-# i.e. the version is of the form "2.5.0" and not "2.4".
+short_description: This is a module that will perform idempotent operations on kentik label management.
 version_added: "1.0.0"
-
-description: The module will gather the current list of sites from Kentik and create the site if it is not in the list. 
-
+description: The module will gather the current list of sites from Kentik and create the site if it is not in the list.
 options:
     name:
         description: The name or title of the label.
         required: true
         type: str
     color:
-        description: The hexidecimal color code to be applied to the label. Default is a gray color. 
-        required: true
-        default: \#007090
+        description: The hexidecimal color code to be applied to the label. Default is a gray color.
         type: str
-    email:
-        description: Email to authenticate to Kentik: KENTIK_EMAIL environment var by default. 
-        required: true
-        type: str
-        default: KENTIK_EMAIL
-    token:
-        description: The token to authenticate to Kentik: KENTIK_TOKEN envirnment var by default.
-        required: true
-        type: str
-        default: KENTIK_TOKEN
     region:
-        description: The reqion that your Kentik portal is located in. 
-        required: false
+        description: The reqion that your Kentik portal is located in.
         type: str
         default: US
         choices:
-            - US
-            - EU
-
-# Specify this value according to your collection
-# in format of namespace.collection.doc_fragment_name
-# extends_documentation_fragment:
-#     - my_namespace.my_collection.my_doc_fragment_name
-
+        - US
+        - EU
+    state:
+        description: Whether to ensure the device should be present or if it should be removed.
+        type: str
+        choices: [present, absent]
+        default: present
+    token:
+        description: The Kentik API Token used to authenticate.
+        type: str
+        required: true
+    email:
+        description: The Kentik API Email used to authenticate.
+        type: str
+        required: true
 author:
-    - Ethan Angele (@kentikethan)
+- Ethan Angele (@kentikethan)
 """
 
 EXAMPLES = r"""
@@ -61,19 +49,18 @@ EXAMPLES = r"""
 - name: Create a Label
   kentik_label:
     name: ACCESS_SWITCH
-    color: \#007090
+    color: #007090
     state: present
-
+# Delete a label
 - name: Delete a Label
-    kentik_label:
+  kentik_label:
     name: ACCESS_SWITCH
     state: absent
     region: EU
-
-# fail the module
+# Fail the module
 - name: Test failure of the module
   kentik_label:
-    name: fail me because wront state
+    name: fail me because wrong state
     state: create
 """
 
@@ -93,9 +80,12 @@ message:
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_text
-import requests
+try:
+    import requests
+except ImportError:
+    HAS_ANOTHER_LIBRARY = False
 import json
-import os
+import logging
 
 
 def build_payload(module):
@@ -133,17 +123,17 @@ def compare_label(label_list, module):
     """Check to see if the label already exists"""
     label = module.params["name"]
     if label in label_list:
-        print(f"Label {label} exists")
+        logging.info("Label %s exists", label)
         function_return = label_list[label]
     else:
-        print("Label does not exists...")
+        logging.info("Label does not exists...")
         function_return = False
     return function_return
 
 
 def delete_label(base_url, api_version, auth, module, label_id):
     """Deletes the site"""
-    print("Deleting Site...")
+    logging.info("Deleting Site...")
     url = f"{base_url}/label/{api_version}/labels/{label_id}"
     payload = {}
     headers = auth
@@ -162,7 +152,7 @@ def delete_label(base_url, api_version, auth, module, label_id):
 
 def create_label(base_url, api_version, auth, module, site_object):
     """Creates a site"""
-    print("Creating Label...")
+    logging.info("Creating Label...")
     url = f"{base_url}/label/{api_version}/labels"
 
     payload = json.dumps({"label": site_object})
@@ -185,12 +175,10 @@ def main():
     """Main function for the program starts here"""
     argument_spec = dict(
         name=dict(type="str", required=True),
-        color=dict(type="str", required=False, default="#007090"),
-        email=dict(type="str", required=False, default=os.environ["KENTIK_EMAIL"]),
-        token=dict(
-            type="str", no_log=True, required=False, default=os.environ["KENTIK_TOKEN"]
-        ),
-        region=dict(type="str", required=False, default=os.environ["KENTIK_REGION"]),
+        color=dict(type="str", required=False),
+        email=dict(type="str", required=True),
+        token=dict(type="str", no_log=True, required=True),
+        region=dict(type="str", default="US", choices=["US", "EU"]),
         state=dict(default="present", choices=["present", "absent"]),
     )
     module = AnsibleModule(

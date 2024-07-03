@@ -1,6 +1,6 @@
 ---
 namespace: kentik
-name: kentik
+name: kentik_config
 # The version of the collection. Must be compatible with semantic versioning
 version: 1.0.0
 readme: README.md

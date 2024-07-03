@@ -1,6 +1,6 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
-# Copyright: (c) 2018, Terry Jones <terry.jones@example.org>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
 
@@ -9,27 +9,19 @@ __metaclass__ = type
 DOCUMENTATION = r"""
 ---
 module: kentik_site
-
-short_description: This is a module that will perform idempoent operations on kentik site management. 
-
-# If this is part of a collection, you need to use semantic versioning,
-# i.e. the version is of the form "2.5.0" and not "2.4".
+short_description: This is a module that will perform idempotent operations on kentik site management.
 version_added: "1.0.0"
-
-description: The module will gather the current list of sites from Kentik and create the site if it is not in the list. 
-
+description: The module will gather the current list of sites from Kentik and create the site if it is not in the list.
 options:
     title:
         description: The site name to be displayed and referenced going forward.
         required: true
         type: str
     postalAddress:
-        description: The physicall address of the site. 
-        required: false
-        type: str
+        description: The physicall address of the site.
+        type: dict
     type:
-        description: The type of site this is, see choices for options. 
-        required: true
+        description: The type of site this is, see choices for options.
         type: str
         default: SITE_TYPE_OTHER
         choices:
@@ -39,21 +31,39 @@ options:
             - SITE_TYPE_CONNECTIVITY
             - SITE_TYPE_CUSTOMER
             - SITE_TYPE_OTHER
+    lat:
+        description: The latitude of the site.
+        type: float
+    lon:
+        description: The longitude of the site.
+        type: float
+    siteMarket:
+        description: Name of the Site Market this site belongs to.
+        type: str
     region:
-        description: The reqion that your Kentik portal is located in. 
-        required: false
+        description: The reqion that your Kentik portal is located in.
         type: str
         default: US
         choices:
             - US
             - EU
-# Specify this value according to your collection
-# in format of namespace.collection.doc_fragment_name
-# extends_documentation_fragment:
-#     - my_namespace.my_collection.my_doc_fragment_name
-
+    state:
+        description: States whether to delete or create.
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+    token:
+        description: The Kentik API Token used to authenticate.
+        type: str
+        required: true
+    email:
+        description: The Kentik API Email used to authenticate.
+        type: str
+        required: true
 author:
-    - Ethan Angele (@kentikethan)
+- Ethan Angele (@kentikethan)
 """
 
 EXAMPLES = r"""
@@ -61,7 +71,7 @@ EXAMPLES = r"""
 - name: Create a Site
   kentik_site:
     title: LA1
-    postalAddress: 
+    postalAddress:
             address: 600 W 7th Street,
             city: Los Angeles,
             country: US
@@ -69,7 +79,7 @@ EXAMPLES = r"""
 - name: Create a Site in EU Cluster
   kentik_site:
     title: LA1
-    postalAddress: 
+    postalAddress:
             address: 600 W 7th Street,
             city: Los Angeles,
             country: US
@@ -98,9 +108,12 @@ message:
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_text
-import requests
+try:
+    import requests
+except ImportError:
+    HAS_ANOTHER_LIBRARY = False
 import json
-import os
+import logging
 
 
 def build_payload(module):
@@ -136,17 +149,17 @@ def compare_site(site_list, module):
     """Check to see if the site exists"""
     site = module.params["title"]
     if site in site_list:
-        print("Site exists")
+        logging.info("Site Exists")
         function_return = site_list[site]
     else:
-        print("Site does not exists")
+        logging.info("Site does not exists")
         function_return = False
     return function_return
 
 
 def delete_site(base_url, api_version, auth, site_id, module):
     """Function to delete a site"""
-    print("Deleting Site...")
+    logging.info("Deleting Site...")
     url = f"{base_url}{api_version}/sites/{site_id}"
     payload = {}
     headers = auth
@@ -165,7 +178,7 @@ def delete_site(base_url, api_version, auth, site_id, module):
 
 def create_site(base_url, api_version, auth, site_object, module):
     """Function for creating the site"""
-    print("Creating Site...")
+    logging.info("Creating Site...")
     url = f"{base_url}{api_version}/sites"
 
     payload = json.dumps({"site": site_object})
@@ -203,12 +216,10 @@ def main():
         ),
         lat=dict(type="float", required=False),
         lon=dict(type="float", required=False),
-        email=dict(type="str", required=False, default=os.environ["KENTIK_EMAIL"]),
-        token=dict(
-            type="str", no_log=True, required=False, default=os.environ["KENTIK_TOKEN"]
-        ),
+        email=dict(type="str", required=True),
+        token=dict(type="str", no_log=True, required=True),
+        region=dict(type="str", required=False, default="US", choices=["US", "EU"]),
         state=dict(default="present", choices=["present", "absent"]),
-        region=dict(type="str", required=False, default=os.environ["KENTIK_REGION"]),
         siteMarket=dict(type="str", required=False),
     )
     module = AnsibleModule(

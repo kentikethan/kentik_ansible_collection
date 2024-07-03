@@ -81,5 +81,3 @@
       retries: 3
       delay: 10
       until: kentik_batch_status.json.is_complete
-
-
