@@ -3,16 +3,16 @@
         "deviceName": "access_switch_100",
         "deviceSampleRate": 10,
         "deviceSnmpCommunity": "kentik",
-        "deviceSnmpIp": "192.168.1.100",
+        "deviceSnmpIp": "192.0.2.10",
         "deviceSubtype": "router",
         "minimizeSnmp": false,
         "planName": "Free Flowpak Plan",
-        "sendingIps": ["192.168.1.100"],
+        "sendingIps": ["192.0.2.10"],
         "siteName": "SN1",
         "deviceBgpType": "none",
         "nms": {
             "agentId": "183",
-            "ipAddress": "192.168.1.100",
+            "ipAddress": "192.0.2.10",
             "snmp": {
                 "credentialName": "snmp_v2_read_only"
             }
