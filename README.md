@@ -39,31 +39,30 @@ Tested with Ansible Core >= 2.14.2 versions, and the current development version
 - [Kentik portal account](https://portal.kentik/com)
 
 ## Example playbook
----
-- name: "Create Kentik Device"
-  hosts: all
-  gather_facts: false
-  vars_files:
-    - ./vars/credentials.yml
+'
+    ---
+    - name: "Create Kentik Device"
+    hosts: all
+    gather_facts: false
+    vars_files:
+        - ./vars/credentials.yml
 
-  ## Create a device, site or labels. Example shows a device.
-`
-  - name: Create Device
-      kentik_device:
-        device_name: "access_switch_01"
-        device_sample_rate: 10
-        plan_name: Free Flowpak Plan
-        site_name: "Seattle"
-        sending_ips: ["192.0.2.100"]
-        device_snmp_ip: "192.0.2.100"
-        device_snmp_community: kentik
-        nms:
-            agentId: "183" # random agent id.
-            ipAddress: "192.0.2.100"
-            snmp:
-                credentialName: snmp_v2_read_only
-        labels: ["access switch", "end users"]
-      delegate_to: localhost
+    - name: Create Device
+        kentik_device:
+            device_name: "access_switch_01"
+            device_sample_rate: 10
+            plan_name: Free Flowpak Plan
+            site_name: "Seattle"
+            sending_ips: ["192.0.2.100"]
+            device_snmp_ip: "192.0.2.100"
+            device_snmp_community: kentik
+            nms:
+                agentId: "183" # random agent id.
+                ipAddress: "192.0.2.100"
+                snmp:
+                    credentialName: snmp_v2_read_only
+            labels: ["access switch", "end users"]
+        delegate_to: localhost
 `
 ## Installing the Collection from Ansible Galaxy
 Before using this collection, you need to install it with the Ansible Galaxy command-line tool:
@@ -72,17 +71,17 @@ ansible-galaxy collection install kentik.kentik_config
 You can also include it in a requirements.yml file and install it with ansible-galaxy collection install -r requirements.yml, using the format:
 
 `
----
-collections:
-  - name: kentik.kentik_config
+    ---
+    collections:
+    - name: kentik.kentik_config
 `
 Note that if you install the collection from Ansible Galaxy, it will not be upgraded automatically when you upgrade the ansible package. To upgrade the collection to the latest available version, run the following command:
 `
-ansible-galaxy collection install kentik.kentik_config --upgrade
+    ansible-galaxy collection install kentik.kentik_config --upgrade
 `
 You can also install a specific version of the collection, for example, if you need to downgrade when something is broken in the latest version (please report an issue in this repository). Use the following syntax to install version 0.1.0:
 `
-ansible-galaxy collection install kentik.kentik_config:==1.0.0
+    ansible-galaxy collection install kentik.kentik_config:==1.0.0
 `
 See using Ansible collections for more details.
 
