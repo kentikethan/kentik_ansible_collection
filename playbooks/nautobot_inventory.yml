@@ -1,5 +1,5 @@
 plugin: networktocode.nautobot.inventory
-api_endpoint: https://10.1.1.12
+api_endpoint: https://192.0.2.12
 validate_certs: False
 config_context: False
 device_query_filters:
