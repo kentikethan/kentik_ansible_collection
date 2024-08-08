@@ -57,6 +57,10 @@ options:
     deviceSnmpCommunity:
         description: The SNMP community to use when polling the device.
         type: str
+    updateSnmpAuth:
+        description: Update the SNMP Authentication.
+        type: bool
+        default: false
     deviceSnmpV3Conf:
         description:
         - A dictionary with all snmpv3 attributes.
@@ -161,11 +165,30 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_text
 try:
     import requests
-    from kentik_site import gather_sites, compare_site
-    from kentik_label import gather_labels
 except ImportError:
     HAS_ANOTHER_LIBRARY = False
 import logging
+
+
+def gather_labels(base_url, api_version, auth, module):
+    """Gather the current list of labels"""
+    url = f"{base_url}/label/{api_version}/labels"
+    payload = {}
+    headers = auth
+    try:
+        response = requests.request(
+            "GET", url, headers=headers, data=payload, timeout=30
+        )
+        if response.status_code == 200:
+            label_data = response.json()
+        else:
+            module.fail_json(msg=f"gatherLabels: {response.text}")
+    except ConnectionError as exc:
+        module.fail_json(msg=to_text(exc))
+    label_dict = {}
+    for label in label_data["labels"]:
+        label_dict[label["name"]] = label["id"]
+    return label_dict
 
 
 def build_labels(base_url, api_version, auth, module):
@@ -181,6 +204,37 @@ def build_labels(base_url, api_version, auth, module):
         else:
             module.fail_json(msg=f"Label {label} does not exist.")
     return label_ids
+
+
+def gather_sites(base_url, api_version, auth, module):
+    """Gather a list of sites"""
+    url = f"{base_url}{api_version}/sites"
+
+    payload = {}
+    headers = auth
+    try:
+        response = requests.request(
+            "GET", url, headers=headers, data=payload, timeout=30
+        )
+        site_data = response.json()
+    except ConnectionError as exc:
+        module.fail_json(msg=to_text(exc))
+    site_dict = {}
+    for site in site_data["sites"]:
+        site_dict[site["title"]] = site["id"]
+    return site_dict
+
+
+def compare_site(site_list, module):
+    """Check to see if the site exists"""
+    site = module.params["title"]
+    if site in site_list:
+        logging.info("Site Exists")
+        function_return = site_list[site]
+    else:
+        logging.info("Site does not exists")
+        function_return = False
+    return function_return
 
 
 def build_payload(base_url, auth, module):
@@ -204,6 +258,7 @@ def build_payload(base_url, auth, module):
     del [payload["labels"]]
     del [payload["title"]]
     del [payload["region"]]
+    del [payload["updateSnmpAuth"]]
     none_keys = []
     for key in payload:
         if payload[key] is None:
@@ -226,7 +281,7 @@ def gather_plans(auth, module):
     headers = auth
     try:
         response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=20
+            "GET", url, headers=headers, data=payload, timeout=30
         )
         if response.status_code == 200:
             plan_data = response.json()
@@ -259,7 +314,7 @@ def gather_devices(base_url, api_version, auth, module):
 
     try:
         response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=20
+            "GET", url, headers=headers, data=payload, timeout=30
         )
         device_data = response.json()
     except ConnectionError as exc:
@@ -290,13 +345,15 @@ def compare_labels(base_url, api_version, auth, module, device_id, labels):
     headers = auth
     try:
         response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=20
+            "GET", url, headers=headers, data=payload, timeout=30
         )
         if response.status_code == 200:
             device_data = response.json()
             device_labels = []
             for device_label in device_data["device"]["labels"]:
                 device_labels.append(device_label["id"])
+            device_labels.sort()
+            labels.sort()
             if labels == device_labels:
                 function_return = False
             else:
@@ -316,7 +373,7 @@ def delete_device(base_url, api_version, auth, device_id, module):
     headers = auth
     try:
         response = requests.request(
-            "DELETE", url, headers=headers, data=payload, timeout=20
+            "DELETE", url, headers=headers, data=payload, timeout=30
         )
         if response.status_code == 200:
             logging.info("Device deleted successfully")
@@ -334,7 +391,7 @@ def create_device(base_url, api_version, auth, module, device_object):
     headers = auth
     try:
         response = requests.request(
-            "POST", url, headers=headers, data=payload, timeout=20
+            "POST", url, headers=headers, data=payload, timeout=30
         )
         if response.status_code == 200:
             device_data = response.json()
@@ -362,7 +419,7 @@ def update_device_labels(base_url, api_version, auth, module, device_id, labels)
     payload = json.dumps({"id": device_id, "labels": labels_list})
     try:
         response = requests.request(
-            "PUT", url, headers=headers, data=payload, timeout=20
+            "PUT", url, headers=headers, data=payload, timeout=30
         )
         if response.status_code == 200:
             device_data = response.json()
@@ -373,7 +430,7 @@ def update_device_labels(base_url, api_version, auth, module, device_id, labels)
     return device_data["device"]["id"]
 
 
-def update_check(base_url, api_version, auth, module, device_id, device_object):
+def update_check(base_url, api_version, auth, module, device_id, device_object, update_bool):
     """Function to check whether a device needs to be updated"""
     logging.info("Checking device update...")
     url = f"{base_url}/device/{api_version}/device/{device_id}"
@@ -382,7 +439,7 @@ def update_check(base_url, api_version, auth, module, device_id, device_object):
     payload = {}
     try:
         response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=20
+            "GET", url, headers=headers, data=payload, timeout=30
         )
         if response.status_code == 200:
             device_data = response.json()
@@ -405,6 +462,8 @@ def update_check(base_url, api_version, auth, module, device_id, device_object):
     elif int(device_data["device"]["plan"]["id"]) != int(device_object["planId"]):
         logging.info("Plan IDs don't match...updating")
         return_bool = True
+    elif update_bool:
+        return_bool = True
     else:
         del [device_object["siteId"]]
         del [device_object["planId"]]
@@ -415,7 +474,11 @@ def update_check(base_url, api_version, auth, module, device_id, device_object):
                 return_bool = True
             else:
                 if str(device_data["device"][key]) != str(device_object[key]):
-                    logging.info("Configured %s: %s does not match returned %s: %s", key, device_object[key], key, device_data["device"][key])
+                    logging.info("Configured %s: %s does not match returned %s: %s",
+                                 key,
+                                 device_object[key],
+                                 key,
+                                 device_data["device"][key])
                     return_bool = True
     if return_bool is False:
         logging.info("Device is up to date...")
@@ -431,7 +494,7 @@ def update_device(base_url, api_version, auth, module, device_id, device_object)
     headers = auth
     try:
         response = requests.request(
-            "PUT", url, headers=headers, data=payload, timeout=20
+            "PUT", url, headers=headers, data=payload, timeout=30
         )
         if response.status_code == 200:
             device_data = response.json()
@@ -478,6 +541,7 @@ def main():
         minimizeSnmp=dict(type="bool", required=False),
         deviceSnmpIp=dict(type="str", required=False),
         deviceSnmpCommunity=dict(type="str", required=False),
+        updateSnmpAuth=dict(type="bool", required=False, default=False),
         deviceSnmpV3Conf=dict(type="dict", required=False),
         deviceBgpType=dict(
             type="str",
@@ -520,6 +584,7 @@ def main():
     else:
         logging.info("No Labels found")
         labels = False
+    update_snmp_auth_bool = module.params["updateSnmpAuth"]
     device_object = build_payload(base_url, auth, module)
     result = {"changed": False}
     device_list = gather_devices(base_url, api_version, auth, module)
@@ -527,7 +592,12 @@ def main():
 
     if device_id:
         labels = compare_labels(base_url, api_version, auth, module, device_id, labels)
-        needs_updated = update_check(base_url, api_version, auth, module, device_id, device_object)
+        needs_updated = update_check(base_url,
+                                     api_version,
+                                     auth, module,
+                                     device_id,
+                                     device_object,
+                                     update_snmp_auth_bool)
         if state == "present" and needs_updated:
             update_device(base_url, api_version, auth, module, device_id, device_object)
             result["changed"] = True

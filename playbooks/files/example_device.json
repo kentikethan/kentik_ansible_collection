@@ -3,6 +3,7 @@
         "deviceName": "access_switch_100",
         "deviceSampleRate": 10,
         "deviceSnmpCommunity": "kentik",
+        "updateSnmpAuth": false,
         "deviceSnmpIp": "192.0.2.10",
         "deviceSubtype": "router",
         "minimizeSnmp": false,
@@ -16,6 +17,9 @@
             "snmp": {
                 "credentialName": "snmp_v2_read_only"
             }
-        }
+        },
+        "email": "test@test.com",
+        "token": "testtoken",
+        "labels": ["Data Center Network","Campus Access Switch"]
     }
 }

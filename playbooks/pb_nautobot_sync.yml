@@ -93,7 +93,7 @@
             ipAddress: "{{ primary_ip4 }}"
             snmp:
                 credentialName: snmp_v2_read_only
-        labels: ["{{ device_roles | join(',') }}", "{{ tags| join(',') }}", "{{ tenants | join(',') }}"]
+        labels: ["{{ device_roles | join(',') }}", "{{ tags | join(',') }}", "{{ tenants | join(',') }}"]
       delegate_to: localhost
       environment:
        PYTHONPATH: ${ANSIBLE_LIBRARY}:{{playbook_dir}}/library

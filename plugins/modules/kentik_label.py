@@ -20,6 +20,7 @@ options:
     color:
         description: The hexidecimal color code to be applied to the label. Default is a gray color.
         type: str
+        required: true
     region:
         description: The reqion that your Kentik portal is located in.
         type: str
@@ -105,7 +106,7 @@ def gather_labels(base_url, api_version, auth, module):
     headers = auth
     try:
         response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=20
+            "GET", url, headers=headers, data=payload, timeout=30
         )
         if response.status_code == 200:
             label_data = response.json()
@@ -133,13 +134,13 @@ def compare_label(label_list, module):
 
 def delete_label(base_url, api_version, auth, module, label_id):
     """Deletes the site"""
-    logging.info("Deleting Site...")
+    logging.info("Deleting Label...")
     url = f"{base_url}/label/{api_version}/labels/{label_id}"
     payload = {}
     headers = auth
     try:
         response = requests.request(
-            "DELETE", url, headers=headers, data=payload, timeout=20
+            "DELETE", url, headers=headers, data=payload, timeout=30
         )
         if response.status_code == 200:
             function_return = "OK"
@@ -159,7 +160,7 @@ def create_label(base_url, api_version, auth, module, site_object):
     headers = auth
     try:
         response = requests.request(
-            "POST", url, headers=headers, data=payload, timeout=20
+            "POST", url, headers=headers, data=payload, timeout=30
         )
         label_data = response.json()
         if response.status_code == 200:
@@ -175,7 +176,7 @@ def main():
     """Main function for the program starts here"""
     argument_spec = dict(
         name=dict(type="str", required=True),
-        color=dict(type="str", required=False),
+        color=dict(type="str", required=True),
         email=dict(type="str", required=True),
         token=dict(type="str", no_log=True, required=True),
         region=dict(type="str", default="US", choices=["US", "EU"]),
