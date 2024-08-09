@@ -66,7 +66,8 @@ Tested with Ansible Core >= 2.14.2 versions, and the current development version
 ## Installing the Collection from Ansible Galaxy
 Before using this collection, you need to install it with the Ansible Galaxy command-line tool:
 
-ansible-galaxy collection install kentik.kentik_config
+    ansible-galaxy collection install kentik.kentik_config
+    
 You can also include it in a requirements.yml file and install it with ansible-galaxy collection install -r requirements.yml, using the format:
 
     ---

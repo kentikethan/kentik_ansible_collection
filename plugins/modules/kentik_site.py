@@ -34,12 +34,15 @@ options:
     lat:
         description: The latitude of the site.
         type: float
+        default: 0.0
     lon:
         description: The longitude of the site.
         type: float
+        default: 0.0
     siteMarket:
         description: Name of the Site Market this site belongs to.
         type: str
+        default: ''
     region:
         description: The reqion that your Kentik portal is located in.
         type: str
@@ -62,6 +65,19 @@ options:
         description: The Kentik API Email used to authenticate.
         type: str
         required: true
+    infrastructureNetworks:
+        description: Network subnets that connect to other network devices.
+        type: list
+        elements: str
+    userAccessNetworks:
+        description: Network subnets that connect to end users ot servers.
+        type: list
+        elements: str
+    otherNetworks:
+        description: Network subnets that connect to something other then what is noted above.
+        type: list
+        elements: str
+
 author:
 - Ethan Angele (@kentikethan)
 """
@@ -114,6 +130,7 @@ except ImportError:
     HAS_ANOTHER_LIBRARY = False
 import json
 import logging
+logging.basicConfig(level=logging.INFO)
 
 
 def build_payload(module):
@@ -123,6 +140,21 @@ def build_payload(module):
     del payload["token"]
     del [payload["state"]]
     del [payload["region"]]
+    if payload["infrastructureNetworks"] is None:
+        payload["infrastructureNetworks"] = []
+    if payload["userAccessNetworks"] is None:
+        payload["userAccessNetworks"] = []
+    if payload["otherNetworks"] is None:
+        payload["otherNetworks"] = []
+    address_classification = {
+        "infrastructureNetworks": payload["infrastructureNetworks"],
+        "userAccessNetworks": payload["userAccessNetworks"],
+        "otherNetworks": payload["otherNetworks"]
+    }
+    del [payload["infrastructureNetworks"]]
+    del [payload["userAccessNetworks"]]
+    del [payload["otherNetworks"]]
+    payload["addressClassification"] = address_classification
     return payload
 
 
@@ -134,7 +166,7 @@ def gather_sites(base_url, api_version, auth, module):
     headers = auth
     try:
         response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=20
+            "GET", url, headers=headers, data=payload, timeout=30
         )
         site_data = response.json()
     except ConnectionError as exc:
@@ -165,7 +197,7 @@ def delete_site(base_url, api_version, auth, site_id, module):
     headers = auth
     try:
         response = requests.request(
-            "DELETE", url, headers=headers, data=payload, timeout=20
+            "DELETE", url, headers=headers, data=payload, timeout=30
         )
         if response.status_code == 200:
             function_return = "ok"
@@ -185,7 +217,7 @@ def create_site(base_url, api_version, auth, site_object, module):
     headers = auth
     try:
         response = requests.request(
-            "POST", url, headers=headers, data=payload, timeout=20
+            "POST", url, headers=headers, data=payload, timeout=30
         )
         if response.status_code == 200:
             site_data = response.json()
@@ -195,6 +227,70 @@ def create_site(base_url, api_version, auth, site_object, module):
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
     return function_return
+
+
+def update_check(base_url, api_version, auth, site_id, site_object, module):
+    """Function to check whether a site needs to be updated"""
+    logging.info("Checking site update...")
+    url = f"{base_url}{api_version}/sites/{site_id}"
+    headers = auth
+    site_data = {}
+    payload = {}
+    try:
+        response = requests.request(
+            "GET", url, headers=headers, data=payload, timeout=30
+        )
+        if response.status_code == 200:
+            site_data = response.json()
+        else:
+            module.fail_json(function="update_check", msg=response.text)
+    except ConnectionError as exc:
+        module.fail_json(function="update_check", msg=to_text(exc))
+    return_bool = False
+    if site_object["lat"] == 0.0:
+        site_object["lat"] = int(site_object["lat"])
+    if site_object["lon"] == 0.0:
+        site_object["lon"] = int(site_object["lon"])
+    for key in site_object:
+        if key not in site_data["site"]:
+            logging.info("Configured %s: %s is not yet configured.", key, site_object[key])
+            return_bool = True
+        else:
+            if str(site_data["site"][key]) != str(site_object[key]):
+                logging.info("Configured %s: %s does not match returned %s: %s",
+                             key,
+                             site_object[key],
+                             key,
+                             site_data["site"][key])
+                return_bool = True
+    if return_bool is False:
+        logging.info("Site is up to date...")
+    return return_bool
+
+
+def update_site(base_url, api_version, auth, module, site_id, site_object):
+    """Function to update a site to kentik"""
+    logging.info("Updating Site...")
+    url = f"{base_url}{api_version}/sites/{site_id}"
+    site_object['id'] = site_id
+    payload = json.dumps({"site": site_object})
+    headers = auth
+    try:
+        response = requests.request(
+            "PUT", url, headers=headers, data=payload, timeout=30
+        )
+        if response.status_code == 200:
+            site_data = response.json()
+        else:
+            module.fail_json(
+                function="update_site",
+                status_code=response.status_code,
+                msg=response.text,
+            )
+    except ConnectionError as exc:
+        module.fail_json(function="update_site", msg=to_text(exc))
+
+    return site_data["site"]["id"]
 
 
 def main():
@@ -214,13 +310,16 @@ def main():
             required=False,
             default="SITE_TYPE_OTHER",
         ),
-        lat=dict(type="float", required=False),
-        lon=dict(type="float", required=False),
+        lat=dict(type="float", required=False, default=0),
+        lon=dict(type="float", required=False, default=0),
         email=dict(type="str", required=True),
         token=dict(type="str", no_log=True, required=True),
         region=dict(type="str", required=False, default="US", choices=["US", "EU"]),
         state=dict(default="present", choices=["present", "absent"]),
-        siteMarket=dict(type="str", required=False),
+        siteMarket=dict(type="str", required=False, default=""),
+        infrastructureNetworks=dict(type="list", required=False, elements="str"),
+        userAccessNetworks=dict(type="list", required=False, elements="str"),
+        otherNetworks=dict(type="list", required=False, elements="str")
     )
     module = AnsibleModule(
         argument_spec=argument_spec,
@@ -241,14 +340,24 @@ def main():
     api_version = "v202211"
     site_object = build_payload(module)
     site_list = gather_sites(base_url, api_version, auth, module)
-    site_exists = compare_site(site_list, module)
+    site_id = compare_site(site_list, module)
 
-    if site_exists:
-        if state == "present":
+    if site_id:
+        needs_updated = update_check(base_url,
+                                     api_version,
+                                     auth,
+                                     site_id,
+                                     site_object,
+                                     module)
+        if state == "present" and needs_updated:
+            update_site(base_url, api_version, auth, module, site_id, site_object)
+            result["changed"] = True
+            result["site_id"] = site_id
+        elif state == "present":
             result["changed"] = False
-            result["site_id"] = site_exists
+            result["site_id"] = site_id
         elif state == "absent":
-            delete_site(base_url, api_version, auth, site_exists, module)
+            delete_site(base_url, api_version, auth, site_id, module)
             result["changed"] = True
     else:
         if state == "present":
