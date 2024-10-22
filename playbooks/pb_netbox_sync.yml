@@ -1,0 +1,118 @@
+---
+- name: "MAIN >> SYNC NETBOX TO KENTIK << MUST USE NETBOX INVENTORY"
+  hosts: AUSYD01-SW-1
+  gather_facts: false
+  vars_files:
+    - ./vars/credentials.yml
+
+  tasks:
+
+    - name: Collect List of Sites from netbox
+      uri: 
+        url: "https://{{ netbox_host }}/api/dcim/sites"
+        validate_certs: false
+        headers:
+          authorization: "Token {{netbox_token}}"
+      register: netbox_sites
+      delegate_to: localhost
+      run_once: true
+
+    - name: Create the Site
+      kentik.kentik_config.kentik_site:
+        title: "{{ item['slug'] }}"
+        lat: "{{ item['latitude'] | int }}"
+        lon: "{{ item['longitude'] | int }}"
+        state: present
+        email: "{{ kentik_user }}"
+        token: "{{ kentik_token }}"
+      delegate_to: localhost
+      register: site_data
+      run_once: true
+      loop: "{{ netbox_sites.json.results }}"
+
+    - name: Gather Device Roles from netbox
+      uri: 
+        url: "https://{{ netbox_host }}/api/dcim/device-roles/"
+        validate_certs: false
+        headers:
+          authorization: Token {{netbox_token}}
+      register: netbox_roles
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Gather Tenants from netbox
+      uri: 
+        url: "https://{{ netbox_host }}/api/tenancy/tenants"
+        validate_certs: false
+        headers:
+          authorization: Token {{netbox_token}}
+      register: netbox_tenants
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Gather Tags from netbox
+      uri: 
+        url: "https://{{ netbox_host }}/api/extras/tags"
+        validate_certs: false
+        headers:
+          authorization: Token {{netbox_token}}
+      register: netbox_tags
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Create Device Role Labels
+      kentik.kentik_config.kentik_label:
+        name: "{{ item['slug'] }}"
+        color: "#000061"
+        email: "{{ kentik_user }}"
+        token: "{{ kentik_token }}"
+      delegate_to: localhost
+      loop: "{{ netbox_roles.json.results }}"
+      run_once: true
+
+    - name: Create Tenant Labels
+      kentik.kentik_config.kentik_label:
+        name: "{{ item['slug'] }}"
+        email: "{{ kentik_user }}"
+        token: "{{ kentik_token }}"
+        color: "#4aa926"
+      delegate_to: localhost
+      loop: "{{ netbox_tenants.json.results }}"
+      run_once: true
+
+    - name: Create Tags Labels
+      kentik.kentik_config.kentik_label:
+        name: "{{ item['slug'] }}"
+        email: "{{ kentik_user }}"
+        token: "{{ kentik_token }}"
+        color: "#2d0345"
+      delegate_to: localhost
+      loop: "{{ netbox_tags.json.results }}"
+      run_once: true
+    
+    - name: Set Fact for Labels
+      set_fact:
+        tags: "{{ device_roles + tenants + tags }}"
+    
+    - name: Print Tags
+      debug:
+        var: tags
+
+    - name: Create Device
+      kentik.kentik_config.kentik_device:
+        deviceName: "{{ inventory_hostname }}"
+        deviceSampleRate: 10
+        planName: Free Flowpak Plan
+        siteName: "{{ sites[0] }}"
+        sendingIps: ["{{ primary_ip4 }}"]
+        deviceSnmpIp: "{{ primary_ip4 }}"
+        deviceSnmpCommunity: kentik
+        nms:
+            agentId: "183"
+            ipAddress: "{{ primary_ip4 }}"
+            snmp:
+                credentialName: snmp_v2_read_only
+        labels: "{{ tags }}"
+        email: "{{ kentik_user }}"
+        token: "{{ kentik_token }}"
+      delegate_to: localhost

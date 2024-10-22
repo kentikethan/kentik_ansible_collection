@@ -4,6 +4,8 @@
   gather_facts: false
   vars_files:
     - ./vars/credentials.yml
+  vars: 
+    tags: []
 
   tasks:
 
@@ -79,22 +81,23 @@
       loop: "{{ nautobot_tags.json.results }}"
       run_once: true
 
+    - name: Set Fact for Labels
+      set_fact:
+        tags: "{{ device_roles + tenants + tags }}"
+
     - name: Create Device
       kentik_device:
-        device_name: "{{ inventory_hostname }}"
-        device_sample_rate: 10
-        plan_name: Free Flowpak Plan
-        site_name: "{{ location }}"
-        sending_ips: ["{{ primary_ip4 }}"]
-        device_snmp_ip: "{{ primary_ip4 }}"
-        device_snmp_community: kentik
+        deviceName: "{{ inventory_hostname }}"
+        deviceSampleRate: 10
+        planName: Free Flowpak Plan
+        siteName: "{{ location }}"
+        sendingIps: ["{{ primary_ip4 }}"]
+        deviceSnmpIp: "{{ primary_ip4 }}"
+        deviceSnmpCommunity: kentik
         nms:
             agentId: "183"
             ipAddress: "{{ primary_ip4 }}"
             snmp:
                 credentialName: snmp_v2_read_only
-        labels: ["{{ device_roles | join(',') }}", "{{ tags | join(',') }}", "{{ tenants | join(',') }}"]
+        labels: tags
       delegate_to: localhost
-      environment:
-       PYTHONPATH: ${ANSIBLE_LIBRARY}:{{playbook_dir}}/library
-       ANSIBLE_LIBRARY: ${ANSIBLE_LIBRARY}:{{playbook_dir}}/library

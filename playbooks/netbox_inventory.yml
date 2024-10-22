@@ -1,0 +1,6 @@
+plugin: netbox.netbox.nb_inventory
+api_endpoint: https://jaqx2336.cloud.netboxapp.com
+validate_certs: False
+config_context: False
+device_query_filters:
+  - has_primary_ip: 'true'
