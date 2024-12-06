@@ -107,8 +107,9 @@
         sendingIps: ["{{ primary_ip4 }}"]
         deviceSnmpIp: "{{ primary_ip4 }}"
         deviceSnmpCommunity: kentik
+        minimizeSnmp: false
         nms:
-            agentId: "183"
+            agentId: "27"
             ipAddress: "{{ primary_ip4 }}"
             snmp:
                 credentialName: default
