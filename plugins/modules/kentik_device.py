@@ -45,7 +45,7 @@ options:
         type: str
     sendingIps:
         description: IP addresses from which the device is sending flow.
-        required: true
+        required: false
         type: list
         elements: str
     minimizeSnmp:
@@ -570,7 +570,7 @@ def main():
         deviceSampleRate=dict(type="int", required=False, default=1),
         planName=dict(type="str", required=True),
         siteName=dict(type="str", required=False),
-        sendingIps=dict(type="list", required=True, elements="str"),
+        sendingIps=dict(type="list", required=False, elements="str"),
         minimizeSnmp=dict(type="bool", required=False),
         deviceSnmpIp=dict(type="str", required=False),
         deviceSnmpCommunity=dict(type="str", required=False),
