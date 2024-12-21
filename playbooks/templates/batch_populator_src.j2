@@ -1,0 +1,35 @@
+{
+  "replace_all": true,
+  "complete": true,
+  "upserts": [
+{% set customer_list_jinja = customer_list.list %}
+{% for populator1 in customer_list_jinja|sort(attribute='ip_address') if customer_list_jinja|length != 0 %}
+  {% set addresses = [] %}
+  {% set first_run = namespace(value=false) %}
+  {% for populator2 in customer_list_jinja|sort(attribute='ip_address') %}
+    {% if populator2['customer'] == populator1['customer'] %}
+      {% set dummy_var = addresses.append(populator2['ip_address']) %}
+      {% set indx = customer_list_jinja.index(populator2) %}
+      {% set dummy_var = customer_list_jinja.pop(indx) %}
+    {% endif %}
+  {% endfor %}
+  {% if addresses != [] %}
+    {
+      "value": "{{populator1['customer']}}",
+      "criteria": [
+        {
+          "direction": "SRC",
+          "addr": {{ addresses }},
+          "port": ["{{ populator1['port'] }}"]
+        }
+       ]
+  {% endif %}
+{% if customer_list_jinja|length == 0 %}
+    }
+{% elif addresses == [] %}
+{% else %}
+    },
+{% endif %}
+{% endfor %}
+      ]
+}
