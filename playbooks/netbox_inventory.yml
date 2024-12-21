@@ -6,4 +6,3 @@ device_query_filters:
   - has_primary_ip: 'true'
   #- tag: 'tag1'
   #- role: 'edge-router'
-

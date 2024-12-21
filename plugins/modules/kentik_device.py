@@ -191,6 +191,7 @@ def gather_labels(base_url, api_version, auth, module):
         label_dict[label["name"]] = label["id"]
     return label_dict
 
+
 def build_labels(base_url, api_version, auth, module):
     """Function to build the list of labels to be added to a device"""
     api_version = "v202210"
@@ -384,7 +385,8 @@ def delete_device(base_url, api_version, auth, device_id, module):
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc))
 
-def check_device(auth,module,region):
+
+def check_device(auth, module, region):
     """Function to add a device to kentik"""
     logging.info("Creating Device...")
     if region == "EU":
@@ -414,6 +416,7 @@ def check_device(auth,module,region):
 
     return device_data
 
+
 def create_device(base_url, api_version, auth, module, device_object):
     """Function to add a device to kentik"""
     logging.info("Creating Device...")
@@ -437,6 +440,7 @@ def create_device(base_url, api_version, auth, module, device_object):
         module.fail_json(function="create_device", msg=to_text(exc))
 
     return device_data["device"]["id"]
+
 
 def update_device_labels(base_url, api_version, auth, module, device_id, labels):
     """Function to add or update device labels"""
@@ -622,9 +626,9 @@ def main():
     update_snmp_auth_bool = module.params["updateSnmpAuth"]
     device_object = build_payload(base_url, auth, module)
     result = {"changed": False}
-    #device_list = gather_devices(base_url, api_version, auth, module)
-    #device_id = compare_device(device_list, module)
-    device_exists = check_device(auth,module,region)
+    # device_list = gather_devices(base_url, api_version, auth, module)
+    # device_id = compare_device(device_list, module)
+    device_exists = check_device(auth, module, region)
     if device_exists['exists']:
         labels = compare_labels(base_url, api_version, auth, module, device_exists['id'], labels)
         needs_updated = update_check(base_url,
