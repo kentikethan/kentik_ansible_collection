@@ -45,7 +45,7 @@ options:
         type: str
     sendingIps:
         description: IP addresses from which the device is sending flow.
-        required: true
+        required: false
         type: list
         elements: str
     minimizeSnmp:
@@ -175,6 +175,7 @@ def gather_labels(base_url, api_version, auth, module):
     url = f"{base_url}/label/{api_version}/labels"
     payload = {}
     headers = auth
+    label_data = ''
     try:
         response = requests.request(
             "GET", url, headers=headers, data=payload, timeout=30
@@ -279,6 +280,7 @@ def gather_plans(auth, module):
         url = "https://api.kentik.com/api/v5/plans"
     payload = {}
     headers = auth
+    plan_data = ''
     try:
         response = requests.request(
             "GET", url, headers=headers, data=payload, timeout=30
@@ -343,6 +345,7 @@ def compare_labels(base_url, api_version, auth, module, device_id, labels):
     url = f"{base_url}/device/{api_version}/device/{device_id}"
     payload = {}
     headers = auth
+    function_return = ''
     try:
         response = requests.request(
             "GET", url, headers=headers, data=payload, timeout=30
@@ -383,15 +386,47 @@ def delete_device(base_url, api_version, auth, device_id, module):
         module.fail_json(msg=to_text(exc))
 
 
+def check_device(auth, module, region):
+    """Function to add a device to kentik"""
+    logging.info("Creating Device...")
+    if region == "EU":
+        url = f"https://api.kentik.eu/api/v5/device/{module.params["deviceName"]}"
+    else:
+        url = f"https://api.kentik.com/api/v5/device/{module.params["deviceName"]}"
+    headers = auth
+    device_data = {}
+    try:
+        response = requests.request(
+            "GET", url, headers=headers, timeout=30
+        )
+        if response.status_code == 200:
+            device_data['exists'] = True
+            device_info = response.json()
+            device_data['id'] = device_info['device']['id']
+        elif response.status_code == 404:
+            device_data['exists'] = False
+        else:
+            module.fail_json(
+                function="check_device",
+                stats_code=response.status_code,
+                msg=response.text,
+            )
+    except ConnectionError as exc:
+        module.fail_json(function="check_device", msg=to_text(exc))
+
+    return device_data
+
+
 def create_device(base_url, api_version, auth, module, device_object):
     """Function to add a device to kentik"""
     logging.info("Creating Device...")
     url = f"{base_url}/device/{api_version}/device"
     payload = json.dumps({"device": device_object})
     headers = auth
+    device_data = ''
     try:
         response = requests.request(
-            "POST", url, headers=headers, data=payload, timeout=30
+            "POST", url, headers=headers, data=payload, timeout=20
         )
         if response.status_code == 200:
             device_data = response.json()
@@ -413,6 +448,7 @@ def update_device_labels(base_url, api_version, auth, module, device_id, labels)
     url = f"{base_url}/device/{api_version}/device/{device_id}/labels"
     headers = auth
     labels_list = []
+    device_data = ''
     for label in labels:
         label_dict = {"id": int(label)}
         labels_list.append(label_dict)
@@ -492,6 +528,7 @@ def update_device(base_url, api_version, auth, module, device_id, device_object)
     device_object['id'] = device_id
     payload = json.dumps({"device": device_object})
     headers = auth
+    device_data = ''
     try:
         response = requests.request(
             "PUT", url, headers=headers, data=payload, timeout=30
@@ -537,7 +574,7 @@ def main():
         deviceSampleRate=dict(type="int", required=False, default=1),
         planName=dict(type="str", required=True),
         siteName=dict(type="str", required=False),
-        sendingIps=dict(type="list", required=True, elements="str"),
+        sendingIps=dict(type="list", required=False, elements="str"),
         minimizeSnmp=dict(type="bool", required=False),
         deviceSnmpIp=dict(type="str", required=False),
         deviceSnmpCommunity=dict(type="str", required=False),
@@ -575,8 +612,10 @@ def main():
     }
     if module.params["region"] == "EU":
         base_url = "https://grpc.api.kentik.eu"
+        region = "EU"
     else:
         base_url = "https://grpc.api.kentik.com"
+        region = "US"
     api_version = "v202308beta1"
     if module.params["labels"]:
         logging.info("Labels found")
@@ -587,24 +626,24 @@ def main():
     update_snmp_auth_bool = module.params["updateSnmpAuth"]
     device_object = build_payload(base_url, auth, module)
     result = {"changed": False}
-    device_list = gather_devices(base_url, api_version, auth, module)
-    device_id = compare_device(device_list, module)
-
-    if device_id:
-        labels = compare_labels(base_url, api_version, auth, module, device_id, labels)
+    # device_list = gather_devices(base_url, api_version, auth, module)
+    # device_id = compare_device(device_list, module)
+    device_exists = check_device(auth, module, region)
+    if device_exists['exists']:
+        labels = compare_labels(base_url, api_version, auth, module, device_exists['id'], labels)
         needs_updated = update_check(base_url,
                                      api_version,
                                      auth, module,
-                                     device_id,
+                                     device_exists['id'],
                                      device_object,
                                      update_snmp_auth_bool)
         if state == "present" and needs_updated:
-            update_device(base_url, api_version, auth, module, device_id, device_object)
+            update_device(base_url, api_version, auth, module, device_exists['id'], device_object)
             result["changed"] = True
         elif state == "present":
             result["changed"] = False
         elif state == "absent":
-            delete_device(base_url, api_version, auth, device_id, module)
+            delete_device(base_url, api_version, auth, device_exists['id'], module)
             result["changed"] = True
     else:
         if state == "present":
