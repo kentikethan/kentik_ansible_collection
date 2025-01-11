@@ -1,0 +1,25 @@
+{
+    "ANSIBLE_MODULE_ARGS": {
+        "title": "SN1",
+        "lat": 47.6061,
+        "lon": 122.3328,
+        "postalAddress": {
+            "address": "400 Broad St, Seattle, WA 98109",
+            "city": "Seattle",
+            "region": "Washington",
+            "postalCode": "98108",
+            "country": "US"
+        },
+        "type": "SITE_TYPE_DATA_CENTER",
+        "state": "present",
+        "email": "test@test.com",
+        "token": "testtoken",
+        "infrastructureNetworks": [
+            "192.0.2.0/28"
+            ],
+        "userAccessNetworks": [
+            "192.0.3.0/24",
+            "192.0.4.0/24"
+        ]
+    }
+}

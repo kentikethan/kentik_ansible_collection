@@ -1,5 +1,11 @@
 # Ansible Playbooks for Kentik
 
+## Setup Authentication
+
+First step is to create a copy of the credential file and name it credentials.yml under the vars directory.
+
+## Playbooks
+
 The following playbooks are available today for managing Kentik with Ansible:
 
 - Updating SNMP device settings
@@ -16,4 +22,15 @@ The following playbooks are available today for managing Kentik with Ansible:
     - Only values with one address to value mapping is supported.
     - Only ip address values are supported. 
     - The maximum number of populators is unknown for this playbook and may be something you run into.
+
+- Sync Nautobot to Kentik
+  - This playbook will use nautobot as an inventory source and take each of the devices from the inventory and verify that it is created in kentik and if not create it, associate it to the right site, and apply the right labels. It will first gather all sites, tenants, and roles from nautobot and create them as sites and labels in kentik. Then it will create the device assigned to the right site and associate it with the right labels. 
+  - Currently only adding and removing works for sites, labels, and devices. Updating device labels is supported. Update functions are coming soon. 
+  - To use the environment variables for authentication use the following:
+    - KENTIK_EMAIL
+    - KENTIK_TOKEN
+    - NAUTOBOT_TOKEN
+    - KENTIK_REGION
+  - Be sure to create the credential file with other local creds. 
+  
 -- happy automating

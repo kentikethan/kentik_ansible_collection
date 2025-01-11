@@ -1,3 +1,6 @@
+/tests/output/
+/changelogs/.plugin-cache.yaml
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -26,6 +29,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+*.tar.gz
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -129,7 +133,7 @@ dmypy.json
 .pyre/
 
 # Credential Files
-credentials.yml
+*credentials*
 
 # Environments
 .env
@@ -146,3 +150,9 @@ Vagrantfile
 
 # JSON File for Batch Playbook
 batch_populator.json
+
+# Private Files
+private_*
+
+# Vscode
+settings.json

@@ -1,0 +1,94 @@
+---
+# Create a list of customers based of of ip address. 
+# Requires csv file with the following headers: 
+# customer,ip_address,port,ip_version
+# rename the csv to private_customer_list.csv
+
+- name: "MAIN >> CREATE A SET OF CUSTOM DIMENSIONS FOR ASSOICATING A LIST OF CUSTOMERS TO IP ADDRESSES IN FLOW"
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ./vars/credentials.yml
+  vars_prompt:
+    - name: src_custom_dimension
+      prompt: What is the SRC custom dimension name?
+      private: false
+    - name: dst_custom_dimension
+      prompt: What is the DST custom dimenstion?
+      private: false
+  tasks:
+
+    - name: Read users from CSV file and return a dictionary
+      community.general.read_csv:
+        path: ./files/ # customer list file here !!!
+        #key: ip_address
+      register: customer_list
+      delegate_to: localhost
+
+    - name: "MAIN >> BUILD SRC JSON FILE"
+      ansible.builtin.template:
+        src: templates/batch_populator_src.j2
+        dest: files/batch_populator_src.json
+    
+    - name: "MAIN >> BUILD DST JSON FILE"
+      ansible.builtin.template:
+        src: templates/batch_populator_dst.j2
+        dest: files/batch_populator_dst.json
+ 
+    - name: MAIN >> CREATE THE SRC CUSTOM DIMENSIONS
+      ansible.builtin.uri:
+        url: https://api.kentik.com/api/v5/batch/customdimensions/{{ src_custom_dimension }}/populators
+        method: POST
+        headers: 
+          X-CH-Auth-API-Token: "{{ kentik_token }}"
+          X-CH-Auth-Email: "{{ kentik_user }}"
+          Content-Type: application/json
+        status_code: 200
+        body: "{{ lookup('ansible.builtin.file','files/batch_populator_src.json') }}"
+        body_format: json
+      register: kentik_batch_response
+      delegate_to: localhost
+       
+    - name: MAIN >> GET BATCH STATUS
+      ansible.builtin.uri:
+        url: https://api.kentik.com/api/v5/batch/{{ kentik_batch_response.json.guid }}/status
+        method: GET
+        headers: 
+          X-CH-Auth-API-Token: "{{ kentik_token }}"
+          X-CH-Auth-Email: "{{ kentik_user }}"
+          Content-Type: application/json
+        status_code: 200
+      register: kentik_batch_status
+      delegate_to: localhost
+      retries: 3
+      delay: 10
+      until: kentik_batch_status.json.is_complete
+
+    - name: MAIN >> CREATE THE DST CUSTOM DIMENSIONS
+      ansible.builtin.uri:
+        url: https://api.kentik.com/api/v5/batch/customdimensions/{{ dst_custom_dimension }}/populators
+        method: POST
+        headers: 
+          X-CH-Auth-API-Token: "{{ kentik_token }}"
+          X-CH-Auth-Email: "{{ kentik_user }}"
+          Content-Type: application/json
+        status_code: 200
+        body: "{{ lookup('ansible.builtin.file','files/batch_populator_dst.json') }}"
+        body_format: json
+      register: kentik_batch_response
+      delegate_to: localhost
+       
+    - name: MAIN >> GET BATCH STATUS
+      ansible.builtin.uri:
+        url: https://api.kentik.com/api/v5/batch/{{ kentik_batch_response.json.guid }}/status
+        method: GET
+        headers: 
+          X-CH-Auth-API-Token: "{{ kentik_token }}"
+          X-CH-Auth-Email: "{{ kentik_user }}"
+          Content-Type: application/json
+        status_code: 200
+      register: kentik_batch_status
+      delegate_to: localhost
+      retries: 3
+      delay: 10
+      until: kentik_batch_status.json.is_complete
