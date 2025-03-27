@@ -6,8 +6,7 @@
     - ./vars/credentials.yml
 
   tasks:
-
-    - name: Collect List of Sites from netbox
+    - name: Collect list of sites from Netbox
       ansible.builtin.uri:
         url: "https://{{ netbox_host }}/api/dcim/sites"
         validate_certs: false
@@ -17,7 +16,7 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Create the Site
+    - name: Create the sites
       kentik.kentik_config.kentik_site:
         title: "{{ item['slug'] }}"
         lat: "{{ item['latitude'] | int }}"
@@ -30,7 +29,7 @@
       run_once: true
       loop: "{{ netbox_sites.json.results }}"
 
-    - name: Gather Device Roles from netbox
+    - name: Gather device roles from Netbox
       ansible.builtin.uri:
         url: "https://{{ netbox_host }}/api/dcim/device-roles/"
         validate_certs: false
@@ -40,7 +39,7 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Gather Tenants from netbox
+    - name: Gather tenants from Netbox
       ansible.builtin.uri:
         url: "https://{{ netbox_host }}/api/tenancy/tenants"
         validate_certs: false
@@ -50,7 +49,7 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Gather Tags from netbox
+    - name: Gather tags from Netbox
       ansible.builtin.uri:
         url: "https://{{ netbox_host }}/api/extras/tags"
         validate_certs: false
@@ -60,7 +59,7 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Create Device Role Labels
+    - name: Create device role labels
       kentik.kentik_config.kentik_label:
         name: "{{ item['slug'] }}"
         color: "#{{ item['color'] }}"
@@ -70,7 +69,7 @@
       loop: "{{ netbox_roles.json.results }}"
       run_once: true
 
-    - name: Create Tenant Labels
+    - name: Create tenant labels
       kentik.kentik_config.kentik_label:
         name: "{{ item['slug'] }}"
         color: "#00ff00"
@@ -80,7 +79,7 @@
       loop: "{{ netbox_tenants.json.results }}"
       run_once: true
 
-    - name: Create Tags Labels
+    - name: Create tags tabels
       kentik.kentik_config.kentik_label:
         name: "{{ item['slug'] }}"
         color: "#{{ item['color'] }}"
@@ -90,15 +89,15 @@
       loop: "{{ netbox_tags.json.results }}"
       run_once: true
 
-    - name: Set Fact for Labels
+    - name: Set fact for labels
       ansible.builtin.set_fact:
         labels: "{{ device_roles + tenants + tags }}"
 
-    - name: Print Tags
+    - name: Print tags
       ansible.builtin.debug:
         var: labels
 
-    - name: Create Device
+    - name: Create devices
       kentik.kentik_config.kentik_device:
         deviceName: "{{ inventory_hostname }}"
         deviceSampleRate: 10
