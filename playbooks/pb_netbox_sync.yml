@@ -92,11 +92,11 @@
 
     - name: Set Fact for Labels
       ansible.builtin.set_fact:
-        tags: "{{ device_roles + tenants + tags }}"
+        labels: "{{ device_roles + tenants + tags }}"
 
     - name: Print Tags
       ansible.builtin.debug:
-        var: tags
+        var: labels
 
     - name: Create Device
       kentik.kentik_config.kentik_device:
@@ -113,7 +113,7 @@
           ipAddress: "{{ primary_ip4 }}"
           snmp:
             credentialName: default
-        labels: "{{ tags }}"
+        labels: "{{ labels }}"
         email: "{{ kentik_user }}"
         token: "{{ kentik_token }}"
       delegate_to: localhost
