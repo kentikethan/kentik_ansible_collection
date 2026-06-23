@@ -12,7 +12,7 @@ DOCUMENTATION = r"""
 ---
 module: kentik_device
 short_description: This is a module that will perform idempotent operations on kentik device management
-version_added: "1.0.0"
+version_added: "1.1.0"
 description: The module will gather the current list of devices from Kentik and create or update the device if it is not in the list.
 options:
     deviceName:
@@ -25,7 +25,48 @@ options:
         default: Added by Ansible
     deviceSubtype:
         description: The device subtype.
-        choices: [ router, host-nprobe-dns-www, aws-subnet, azure_subnet, cisco_asa, gcp-subnet, istio_beta, open_nms, paloalto, silverpeak ]
+        choices:
+          - a10_cgn
+          - advanced_sflow
+          - cisco_asa
+          - cisco_asa_syslog
+          - cisco_nbar
+          - cisco_nvzflow
+          - cisco_sdwan_xe
+          - cisco_zone_based_firewall
+          - darknet
+          - dns_server
+          - fortinet_fortigate
+          - gcp_cloud_run
+          - gcp_subnet
+          - gigamon
+          - host-nprobe-dns-www
+          - ibm_subnet
+          - ios_xr
+          - istio
+          - juniper_ddos
+          - kappa
+          - kprobe
+          - kprobe_tap
+          - kproxy
+          - ksynth
+          - meraki
+          - mpls
+          - nokialayer2
+          - nprobe
+          - paloalto
+          - paloalto_prismasdwan
+          - pfe_syslog
+          - router
+          - sflow_tunnel
+          - silverpeak
+          - syslog
+          - versa
+          - viptela
+          - vmanage
+          - vmware_velocloud
+          - vmware_vsphere
+          - vxlan
         type: str
         default: "router"
     cdnAttr:
@@ -93,14 +134,19 @@ options:
         description: The reqion that your Kentik portal is located in.
         type: str
         default: US
-        choices: [ US, EU ]
+        choices: [ US, EU, ENV ]
     nms:
         description:
         - A dictionary for adding NMS SNMP or streaming telemetry to a device.
+        - Supports agentId, ipAddress, snmp, and st (streaming telemetry) configurations.
+        - agentId is the identifier for the NMS agent.
         - Reference Kentik API Documentation for exact dictionary format.
         type: dict
+    monitoringTemplateId:
+        description: The monitoring template ID to be used.
+        type: int
     state:
-        description: Whether to ensure the device should be present or if it should be removed.
+        description: Whether to ensure the device should be present or if it should be removed. Run twice on absent to delete.
         type: str
         choices: [present, absent]
         default: present
@@ -121,29 +167,53 @@ author:
 """
 
 EXAMPLES = r"""
-# Pass in a message
-- name: Create a device
+# Create a device with NMS agent
+- name: Create a device with NMS agent
   kentik_device:
-    name: edge_la1_001
-    description: Edge router 1 in la data center
-    sampleRate: 10
-    type: router
-    planId: 12345
-    siteId: 12345
-    flowSendingIp: 192.168.0.1
-    snmpVersion: v2c
-    snmpIp: 192.168.0.1
-    snmpCommunity: myPreciousCommunity
-    bgpType: device
-    bgpNeighborIp: 192.168.0.1
-    bgpNeighborAsn: 65001
+    deviceName: edge_la1_001
+    deviceDescription: Edge router 1 in la data center
+    deviceSampleRate: 10
+    deviceSubtype: router
+    planName: myPlan
+    siteName: la_dc
+    sendingIps:
+      - 192.168.0.1
+    deviceSnmpIp: 192.168.0.1
+    deviceSnmpCommunity: myPreciousCommunity
+    nms:
+      agentId: "my-nms-agent-123"
+      ipAddress: 192.168.1.1
+      snmp:
+        credentialName: snmp_cred
+        port: 161
+        timeout: "30s"
+      st:
+        credentialName: st_cred
+        port: 50051
+        timeout: "30s"
+        secure: true
+    deviceBgpType: device
+    deviceBgpNeighborIp: 192.168.0.1
+    deviceBgpNeighborAsn: "65001"
     deviceBgpPassword: myPreciousPassword
-    deviceBgpFlowspec: True
-    region: EU
-# fail the module
-- name: Test failure of the module
+    deviceBgpFlowspec: true
+    region: US
+    email: user@example.com
+    token: myToken
+    state: present
+
+# Create a basic device without NMS
+- name: Create a basic device
   kentik_device:
-    name: just_the_name_nothing_else_fail
+    deviceName: edge_la2_001
+    deviceDescription: Edge router 2 in la data center
+    planName: myPlan
+    siteName: la_dc
+    deviceSubtype: router
+    region: US
+    email: user@example.com
+    token: myToken
+    state: present
 """
 
 RETURN = r"""
@@ -163,11 +233,13 @@ message:
 import json
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_text
+import os
 try:
     import requests
 except ImportError:
     HAS_ANOTHER_LIBRARY = False
 import logging
+import time
 
 
 def gather_labels(base_url, api_version, auth, module):
@@ -175,17 +247,8 @@ def gather_labels(base_url, api_version, auth, module):
     url = f"{base_url}/label/{api_version}/labels"
     payload = {}
     headers = auth
-    label_data = ''
-    try:
-        response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=30
-        )
-        if response.status_code == 200:
-            label_data = response.json()
-        else:
-            module.fail_json(msg=f"gatherLabels: {response.text}")
-    except ConnectionError as exc:
-        module.fail_json(msg=to_text(exc))
+    response = http_request_func("GET", url, headers, payload, module)
+    label_data = response.json()
     label_dict = {}
     for label in label_data["labels"]:
         label_dict[label["name"]] = label["id"]
@@ -210,16 +273,10 @@ def build_labels(base_url, api_version, auth, module):
 def gather_sites(base_url, api_version, auth, module):
     """Gather a list of sites"""
     url = f"{base_url}{api_version}/sites"
-
     payload = {}
     headers = auth
-    try:
-        response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=30
-        )
-        site_data = response.json()
-    except ConnectionError as exc:
-        module.fail_json(msg=to_text(exc))
+    response = http_request_func("GET", url, headers, payload, module)
+    site_data = response.json()
     site_dict = {}
     for site in site_data["sites"]:
         site_dict[site["title"]] = site["id"]
@@ -247,12 +304,12 @@ def build_payload(base_url, auth, module):
     payload["title"] = module.params["siteName"]
     del [payload["siteName"]]
     # REMEMBER TO PASS THE CORRECT API VERSION FOR SITES HERE
-    site_list = gather_sites(base_url, "/site/v202211", auth, module)
+    site_list = gather_sites(base_url, "/site/v202509", auth, module)
     site_id = compare_site(site_list, module)
     if site_id is False:
         module.fail_json(msg=f"Site {payload['title']} does not exist.")
     payload["siteId"] = int(site_id)
-    plan_dict = gather_plans(auth, module)
+    plan_dict = gather_plans(base_url, auth, module)
     plan_id = compare_plan(plan_dict, module)
     payload["planId"] = int(plan_id)
     del [payload["planName"]]
@@ -267,30 +324,54 @@ def build_payload(base_url, auth, module):
     for key in none_keys:
         del [payload[key]]
     if "nms" in payload:
-        if "port" in payload["nms"]["snmp"]:
-            payload["nms"]["snmp"]["port"] = int(payload["nms"]["snmp"]["port"])
+        # Handle SNMP port conversion
+        if "snmp" in payload["nms"]:
+            if "port" in payload["nms"]["snmp"]:
+                payload["nms"]["snmp"]["port"] = int(payload["nms"]["snmp"]["port"])
+        # Handle streaming telemetry port conversion
+        if "st" in payload["nms"]:
+            if "port" in payload["nms"]["st"]:
+                payload["nms"]["st"]["port"] = int(payload["nms"]["st"]["port"])
     return payload
 
 
-def gather_plans(auth, module):
-    """Function to gather a list of existing plans"""
-    if module.params["region"] == "EU":
-        url = "https://api.kentik.eu/api/v5/plans"
+def http_request_func(method, url, headers, payload, module, retries=0):
+    """Function for handling HTTP Requests"""
+    if retries < 3:
+        try:
+            response = requests.request(
+                method, url, headers=headers, data=payload, timeout=30
+            )
+            if response.status_code in (200, 201, 204):
+                logging.info("%s HTTP Request Successfull for url: %s", method, url)
+            elif response.status_code == 429:
+                if 'x-ratelimit-reset' in response.headers:
+                    time.sleep(int(response.headers['x-ratelimit-reset']))
+                else:
+                    time.sleep(60)
+                retries += 1
+                http_request_func(method, url, headers, payload, module, retries)
+            elif response.status_code == 404:
+                return False
+            else:
+                module.fail_json(msg=response.text)
+            if 'x-ratelimit-remaining' in response.headers:
+                if int(response.headers['x-ratelimit-remaining']) < 10:
+                    time.sleep(10)  # Helps to slow down the rate of execution for throttling.
+        except ConnectionError as exc:
+            module.fail_json(msg=to_text(exc))
     else:
-        url = "https://api.kentik.com/api/v5/plans"
+        module.fail_json(msg="ERROR - RETRIED 3 TIMES")
+    return response
+
+
+def gather_plans(base_url, auth, module):
+    """Function to gather a list of existing plans"""
+    url = f"{base_url}/plans/v202501alpha1"
     payload = {}
     headers = auth
-    plan_data = ''
-    try:
-        response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=30
-        )
-        if response.status_code == 200:
-            plan_data = response.json()
-        else:
-            module.fail_json(function="gatherPlans", msg=response.text)
-    except ConnectionError as exc:
-        module.fail_json(msg=to_text(exc))
+    response = http_request_func("GET", url, headers, payload, module)
+    plan_data = response.json()
     plan_dict = {}
     for plan in plan_data["plans"]:
         plan_dict[plan["name"]] = plan["id"]
@@ -313,18 +394,11 @@ def gather_devices(base_url, api_version, auth, module):
     url = f"{base_url}/device/{api_version}/device"
     payload = {}
     headers = auth
-
-    try:
-        response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=30
-        )
-        device_data = response.json()
-    except ConnectionError as exc:
-        module.fail_json(msg=to_text(exc))
+    response = http_request_func("GET", url, headers, payload, module)
+    device_data = response.json()
     device_dict = {}
     for device in device_data["devices"]:
         device_dict[device["deviceName"]] = device["id"]
-
     return device_dict
 
 
@@ -346,74 +420,46 @@ def compare_labels(base_url, api_version, auth, module, device_id, labels):
     payload = {}
     headers = auth
     function_return = ''
-    try:
-        response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=30
-        )
-        if response.status_code == 200:
-            device_data = response.json()
-            device_labels = []
-            for device_label in device_data["device"]["labels"]:
-                device_labels.append(device_label["id"])
-            device_labels.sort()
-            labels.sort()
-            if labels == device_labels:
-                function_return = False
-            else:
-                function_return = labels
-        else:
-            module.fail_json(msg=response.text)
-    except ConnectionError as exc:
-        module.fail_json(function="compareLables", msg=to_text(exc))
+    response = http_request_func("GET", url, headers, payload, module)
+    device_data = response.json()
+    device_labels = []
+    for device_label in device_data["device"]["labels"]:
+        device_labels.append(device_label["id"])
+    device_labels.sort()
+    if labels:
+        labels.sort()
+    if labels == device_labels:
+        function_return = False
+    else:
+        function_return = labels
     return function_return
 
 
 def delete_device(base_url, api_version, auth, device_id, module):
     """Function to delete a device from Kentik"""
-    logging.info("Deleting Site...")
+    logging.info("Archiving Device...")
     url = f"{base_url}/device/{api_version}/device/{device_id}"
     payload = {}
     headers = auth
-    try:
-        response = requests.request(
-            "DELETE", url, headers=headers, data=payload, timeout=30
-        )
-        if response.status_code == 200:
-            logging.info("Device deleted successfully")
-        else:
-            module.fail_json(msg=response.text)
-    except ConnectionError as exc:
-        module.fail_json(msg=to_text(exc))
+    http_request_func("DELETE", url, headers, payload, module)
+    logging.info("Device deleted successfully")
 
 
-def check_device(auth, module, region):
-    """Function to add a device to kentik"""
-    logging.info("Creating Device...")
-    if region == "EU":
-        url = f"https://api.kentik.eu/api/v5/device/{module.params["deviceName"]}"
-    else:
-        url = f"https://api.kentik.com/api/v5/device/{module.params["deviceName"]}"
+def check_device(base_url, api_version, auth, module):
+    """Function to check if the device exists in kentik"""
+    logging.info("Checking if the device needs updated...")
+    device_name = module.params["deviceName"].lower()
+    url = f"{base_url}/device/{api_version}/device/name/{device_name}"
     headers = auth
     device_data = {}
-    try:
-        response = requests.request(
-            "GET", url, headers=headers, timeout=30
-        )
-        if response.status_code == 200:
-            device_data['exists'] = True
-            device_info = response.json()
-            device_data['id'] = device_info['device']['id']
-        elif response.status_code == 404:
-            device_data['exists'] = False
-        else:
-            module.fail_json(
-                function="check_device",
-                stats_code=response.status_code,
-                msg=response.text,
-            )
-    except ConnectionError as exc:
-        module.fail_json(function="check_device", msg=to_text(exc))
-
+    payload = {}
+    response = http_request_func("GET", url, headers, payload, module)
+    if response:
+        device_data['exists'] = True
+        device_info = response.json()
+        device_data['id'] = device_info['device']['id']
+    else:
+        device_data['exists'] = False
     return device_data
 
 
@@ -424,21 +470,8 @@ def create_device(base_url, api_version, auth, module, device_object):
     payload = json.dumps({"device": device_object})
     headers = auth
     device_data = ''
-    try:
-        response = requests.request(
-            "POST", url, headers=headers, data=payload, timeout=20
-        )
-        if response.status_code == 200:
-            device_data = response.json()
-        else:
-            module.fail_json(
-                function="create_device",
-                stats_code=response.status_code,
-                msg=response.text,
-            )
-    except ConnectionError as exc:
-        module.fail_json(function="create_device", msg=to_text(exc))
-
+    response = http_request_func("POST", url, headers, payload, module)
+    device_data = response.json()
     return device_data["device"]["id"]
 
 
@@ -453,16 +486,8 @@ def update_device_labels(base_url, api_version, auth, module, device_id, labels)
         label_dict = {"id": int(label)}
         labels_list.append(label_dict)
     payload = json.dumps({"id": device_id, "labels": labels_list})
-    try:
-        response = requests.request(
-            "PUT", url, headers=headers, data=payload, timeout=30
-        )
-        if response.status_code == 200:
-            device_data = response.json()
-        else:
-            module.fail_json(function="update_device_labels", msg=response.text)
-    except ConnectionError as exc:
-        module.fail_json(function="update_device_labels", msg=to_text(exc))
+    response = http_request_func("PUT", url, headers, payload, module)
+    device_data = response.json()
     return device_data["device"]["id"]
 
 
@@ -473,24 +498,26 @@ def update_check(base_url, api_version, auth, module, device_id, device_object, 
     headers = auth
     device_data = {}
     payload = {}
-    try:
-        response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=30
-        )
-        if response.status_code == 200:
-            device_data = response.json()
-        else:
-            module.fail_json(function="update_device_labels", msg=response.text)
-    except ConnectionError as exc:
-        module.fail_json(function="update_device_labels", msg=to_text(exc))
-
+    response = http_request_func("GET", url, headers, payload, module)
+    device_data = response.json()
     if "nms" in device_object:
         logging.info("NMS will be configured...")
-        if "port" in device_object["nms"]["snmp"]:
-            logging.info("Port is configured in nms settings...")
-            device_object["nms"]["snmp"]["port"] = int(device_object["nms"]["snmp"]["port"])
-        elif "nms" in device_data["device"]:
-            del [device_data["device"]["nms"]["snmp"]["port"]]
+        # Handle SNMP port configuration
+        if "snmp" in device_object["nms"]:
+            if "port" in device_object["nms"]["snmp"]:
+                logging.info("Port is configured in nms SNMP settings...")
+                device_object["nms"]["snmp"]["port"] = int(device_object["nms"]["snmp"]["port"])
+            elif "nms" in device_data["device"] and "snmp" in device_data["device"]["nms"]:
+                if "port" in device_data["device"]["nms"]["snmp"]:
+                    del [device_data["device"]["nms"]["snmp"]["port"]]
+        # Handle streaming telemetry port configuration
+        if "st" in device_object["nms"]:
+            if "port" in device_object["nms"]["st"]:
+                logging.info("Port is configured in nms streaming telemetry settings...")
+                device_object["nms"]["st"]["port"] = int(device_object["nms"]["st"]["port"])
+            elif "nms" in device_data["device"] and "st" in device_data["device"]["nms"]:
+                if "port" in device_data["device"]["nms"]["st"]:
+                    del [device_data["device"]["nms"]["st"]["port"]]
     return_bool = False
     if int(device_data["device"]["site"]["id"]) != int(device_object["siteId"]):
         logging.info("Site does not match...updating...")
@@ -501,9 +528,9 @@ def update_check(base_url, api_version, auth, module, device_id, device_object, 
     elif update_bool:
         return_bool = True
     else:
-        del [device_object["siteId"]]
-        del [device_object["planId"]]
-        del [device_object["deviceSnmpCommunity"]]
+        device_object.pop("siteId", None)
+        device_object.pop("planId", None)
+        device_object.pop("deviceSnmpCommunity", None)
         for key in device_object:
             if key not in device_data["device"]:
                 logging.info("Configured %s: %s is not yet configured.", key, device_object[key])
@@ -529,21 +556,8 @@ def update_device(base_url, api_version, auth, module, device_id, device_object)
     payload = json.dumps({"device": device_object})
     headers = auth
     device_data = ''
-    try:
-        response = requests.request(
-            "PUT", url, headers=headers, data=payload, timeout=30
-        )
-        if response.status_code == 200:
-            device_data = response.json()
-        else:
-            module.fail_json(
-                function="update_device",
-                stats_code=response.status_code,
-                msg=response.text,
-            )
-    except ConnectionError as exc:
-        module.fail_json(function="create_device", msg=to_text(exc))
-
+    response = http_request_func("PUT", url, headers, payload, module)
+    device_data = response.json()
     return device_data["device"]["id"]
 
 
@@ -558,16 +572,47 @@ def main():
             required=False,
             default="router",
             choices=[
-                "router",
-                "host-nprobe-dns-www",
-                "aws-subnet",
-                "azure_subnet",
+                "a10_cgn",
+                "advanced_sflow",
                 "cisco_asa",
-                "gcp-subnet",
-                "istio_beta",
-                "open_nms",
+                "cisco_asa_syslog",
+                "cisco_nbar",
+                "cisco_nvzflow",
+                "cisco_sdwan_xe",
+                "cisco_zone_based_firewall",
+                "darknet",
+                "dns_server",
+                "fortinet_fortigate",
+                "gcp_cloud_run",
+                "gcp_subnet",
+                "gigamon",
+                "host-nprobe-dns-www",
+                "ibm_subnet",
+                "ios_xr",
+                "istio",
+                "juniper_ddos",
+                "kappa",
+                "kprobe",
+                "kprobe_tap",
+                "kproxy",
+                "ksynth",
+                "meraki",
+                "mpls",
+                "nokialayer2",
+                "nprobe",
                 "paloalto",
+                "paloalto_prismasdwan",
+                "pfe_syslog",
+                "router",
+                "sflow_tunnel",
                 "silverpeak",
+                "syslog",
+                "versa",
+                "viptela",
+                "vmanage",
+                "vmware_velocloud",
+                "vmware_vsphere",
+                "vxlan",
             ],
         ),
         cdnAttr=dict(type="str", required=False, choices=["none", "y", "n"]),
@@ -593,10 +638,11 @@ def main():
         useBgpDeviceId=dict(type="int", required=False),
         deviceBgpFlowspec=dict(type="bool", required=False),
         nms=dict(type="dict", required=False),
+        monitoringTemplateId=dict(type="int", required=False),
         labels=dict(type="list", required=False, elements="str"),
         email=dict(type="str", required=True),
         token=dict(type="str", no_log=True, required=True),
-        region=dict(type="str", required=False, default="US", choices=["US", "EU"]),
+        region=dict(type="str", required=False, default="US", choices=["US", "EU", "ENV"]),
         state=dict(type="str", default="present", choices=["present", "absent"]),
     )
     module = AnsibleModule(
@@ -612,11 +658,11 @@ def main():
     }
     if module.params["region"] == "EU":
         base_url = "https://grpc.api.kentik.eu"
-        region = "EU"
+    elif module.params["region"] == "ENV":
+        base_url = os.environ("KENTIK_URL")
     else:
         base_url = "https://grpc.api.kentik.com"
-        region = "US"
-    api_version = "v202308beta1"
+    api_version = "v202504beta2"
     if module.params["labels"]:
         logging.info("Labels found")
         labels = build_labels(base_url, api_version, auth, module)
@@ -624,37 +670,39 @@ def main():
         logging.info("No Labels found")
         labels = False
     update_snmp_auth_bool = module.params["updateSnmpAuth"]
-    device_object = build_payload(base_url, auth, module)
     result = {"changed": False}
-    # device_list = gather_devices(base_url, api_version, auth, module)
-    # device_id = compare_device(device_list, module)
-    device_exists = check_device(auth, module, region)
-    if device_exists['exists']:
-        labels = compare_labels(base_url, api_version, auth, module, device_exists['id'], labels)
+    device_exists = check_device(base_url, api_version, auth, module)
+    device_id = None
+    if state == "absent" and device_exists['exists']:
+        delete_device(base_url, api_version, auth, device_exists['id'], module)
+        result["changed"] = True
+    elif device_exists['exists'] and state == "present":
+        device_id = device_exists['id']
+        labels = compare_labels(base_url, api_version, auth, module, device_id, labels)
+        device_object = build_payload(base_url, auth, module)
         needs_updated = update_check(base_url,
                                      api_version,
                                      auth, module,
-                                     device_exists['id'],
+                                     device_id,
                                      device_object,
                                      update_snmp_auth_bool)
-        if state == "present" and needs_updated:
-            update_device(base_url, api_version, auth, module, device_exists['id'], device_object)
+        if needs_updated:
+            update_device(base_url, api_version, auth, module, device_id, device_object)
             result["changed"] = True
-        elif state == "present":
+        else:
             result["changed"] = False
-        elif state == "absent":
-            delete_device(base_url, api_version, auth, device_exists['id'], module)
-            result["changed"] = True
-    else:
-        if state == "present":
-            device_id = create_device(
-                base_url, api_version, auth, module, device_object
-            )
-            result["changed"] = True
-            result["device_id"] = device_id
-        elif state == "absent":
-            result["changed"] = False
-    if labels and len(labels) > 0:
+    elif not device_exists['exists'] and state == "present":
+        device_object = build_payload(base_url, auth, module)
+        device_id = create_device(base_url,
+                                  api_version,
+                                  auth,
+                                  module,
+                                  device_object)
+        result["changed"] = True
+        result["device_id"] = device_id
+    elif state == "absent" and not device_exists['exists']:
+        result["changed"] = False
+    if labels and len(labels) > 0 and state == "present" and device_id is not None:
         update_device_labels(base_url, api_version, auth, module, device_id, labels)
         result["changed"] = True
     module.exit_json(**result)

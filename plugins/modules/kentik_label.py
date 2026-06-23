@@ -28,6 +28,7 @@ options:
         choices:
         - US
         - EU
+        - ENV
     state:
         description: Whether to ensure the device should be present or if it should be removed.
         type: str
@@ -87,6 +88,7 @@ except ImportError:
     HAS_ANOTHER_LIBRARY = False
 import json
 import logging
+import os
 
 
 def build_payload(module):
@@ -104,6 +106,7 @@ def gather_labels(base_url, api_version, auth, module):
     url = f"{base_url}/label/{api_version}/labels"
     payload = {}
     headers = auth
+    label_data = {}
     try:
         response = requests.request(
             "GET", url, headers=headers, data=payload, timeout=30
@@ -138,6 +141,7 @@ def delete_label(base_url, api_version, auth, module, label_id):
     url = f"{base_url}/label/{api_version}/labels/{label_id}"
     payload = {}
     headers = auth
+    function_return = ""
     try:
         response = requests.request(
             "DELETE", url, headers=headers, data=payload, timeout=30
@@ -158,6 +162,7 @@ def create_label(base_url, api_version, auth, module, site_object):
 
     payload = json.dumps({"label": site_object})
     headers = auth
+    function_return = ''
     try:
         response = requests.request(
             "POST", url, headers=headers, data=payload, timeout=30
@@ -179,7 +184,7 @@ def main():
         color=dict(type="str", required=True),
         email=dict(type="str", required=True),
         token=dict(type="str", no_log=True, required=True),
-        region=dict(type="str", default="US", choices=["US", "EU"]),
+        region=dict(type="str", default="US", choices=["US", "EU", "ENV"]),
         state=dict(default="present", choices=["present", "absent"]),
     )
     module = AnsibleModule(
@@ -196,6 +201,9 @@ def main():
     }
     if module.params["region"] == "EU":
         base_url = "https://grpc.api.kentik.eu"
+    elif module.params["region"] == "ENV":
+        base_url = os.environ("KENTIK_URL")
+        region = "ENV"
     else:
         base_url = "https://grpc.api.kentik.com"
     api_version = "v202210"
